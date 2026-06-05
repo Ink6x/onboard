@@ -1,78 +1,127 @@
 import type { JobCandidate } from '../types.js';
 
 /**
- * Lancers通知メールの本文(プレーンテキスト)から案件候補を抽出する。
+ * Lancers「【新着】〜カテゴリに、新しい仕事が登録されました!」メールのパーサー。
  *
- * 注意: Lancersのメールフォーマットは公式非公開のため、このパーサーは
- * 「案件詳細URL(lancers.jp/work/detail/ID)の周辺行からタイトル・予算を拾う」
- * という汎用ヒューリスティックで実装している。
- * 実メールのサンプル入手後、tests/fixtures/ にフィクスチャを追加して精度を上げること。
+ * 実メール(2026-06)で確認したフォーマット:
+ * ```
+ * ━━━━━━━━
+ * ■■　Webシステム開発・プログラミング　■■ （2件）
+ * ━━━━━━━━
+ * ----------------
+ * ▼ 案件タイトル
+ * [依頼金額] 100,000円 ～ 200,000円
+ * [方式] プロジェクト
+ * [募集締切] 2026年6月6日 18:14
+ * https://www.lancers.jp/work/monitor/5545030/new_work_mail/
+ * ```
+ * URLはトラッキング用で、案件IDから正規の詳細URL(/work/detail/<id>)へ変換する。
+ * 構造化パースで何も取れない場合は、汎用のURL走査にフォールバックする
+ * (「仕事の招待状」など別形式のメールへの保険)。
  */
 
-const WORK_URL_PATTERN = /https?:\/\/(?:www\.)?lancers\.jp\/work\/detail\/(\d+)\S*/g;
-const BUDGET_PATTERN = /(?:予算|報酬|金額)[::\s]*([^\n]+)|([\d,]+\s*円\s*[~〜-]\s*[\d,]+\s*円)|([\d,]+\s*円)/;
-const CONTEXT_LINES = 4;
+const WORK_URL_PATTERN = /https?:\/\/(?:www\.)?lancers\.jp\/work\/(?:monitor|detail)\/(\d+)\S*/;
+const CATEGORY_PATTERN = /^■■\s*(.+?)\s*■■/;
+const TITLE_PATTERN = /^▼\s*(.+)$/;
+const BUDGET_PATTERN = /^\[依頼金額\]\s*(.+)$/;
+const DEADLINE_PATTERN = /^\[募集締切\]\s*(.+)$/;
 
-/** URLのクエリ等を除いた正規形(冪等性キー)に変換する。 */
+/** 案件IDから正規の詳細ページURL(冪等性キー)を生成する。 */
 export function canonicalWorkUrl(workId: string): string {
   return `https://www.lancers.jp/work/detail/${workId}`;
 }
 
 export function parseLancersEmail(plainTextBody: string): readonly JobCandidate[] {
-  const lines = plainTextBody.split(/\r?\n/);
+  const structured = parseStructured(plainTextBody);
+  if (structured.length > 0) return structured;
+  return parseGenericFallback(plainTextBody);
+}
+
+/** 新着仕事メールのセクション構造を前提とした本パーサー。 */
+function parseStructured(body: string): readonly JobCandidate[] {
+  const lines = body.split(/\r?\n/).map((line) => line.trim());
+  const candidates: JobCandidate[] = [];
+  const seenIds = new Set<string>();
+
+  let currentCategory: string | undefined;
+  let currentTitle: string | undefined;
+  let currentBudget: string | undefined;
+  let currentDeadline: string | undefined;
+
+  for (const line of lines) {
+    const categoryMatch = line.match(CATEGORY_PATTERN);
+    if (categoryMatch) {
+      currentCategory = categoryMatch[1];
+      continue;
+    }
+
+    const titleMatch = line.match(TITLE_PATTERN);
+    if (titleMatch) {
+      currentTitle = titleMatch[1]?.trim();
+      currentBudget = undefined;
+      currentDeadline = undefined;
+      continue;
+    }
+
+    const budgetMatch = line.match(BUDGET_PATTERN);
+    if (budgetMatch) {
+      currentBudget = budgetMatch[1]?.trim();
+      continue;
+    }
+
+    const deadlineMatch = line.match(DEADLINE_PATTERN);
+    if (deadlineMatch) {
+      currentDeadline = deadlineMatch[1]?.trim();
+      continue;
+    }
+
+    const urlMatch = line.match(WORK_URL_PATTERN);
+    if (urlMatch && currentTitle) {
+      const workId = urlMatch[1];
+      if (workId && !seenIds.has(workId)) {
+        seenIds.add(workId);
+        candidates.push({
+          url: canonicalWorkUrl(workId),
+          title: currentTitle,
+          ...(currentBudget ? { budgetText: currentBudget } : {}),
+          ...(currentDeadline ? { deadline: currentDeadline } : {}),
+          ...(currentCategory ? { category: currentCategory } : {}),
+        });
+      }
+      currentTitle = undefined; // 1案件 = 1URL。次の▼まで取り込まない
+    }
+  }
+
+  return candidates;
+}
+
+/** 別形式メール用の汎用フォールバック: 案件URLとその直前の非空行をタイトルとして拾う。 */
+function parseGenericFallback(body: string): readonly JobCandidate[] {
+  const lines = body.split(/\r?\n/);
   const candidates: JobCandidate[] = [];
   const seenIds = new Set<string>();
 
   lines.forEach((line, index) => {
-    for (const match of line.matchAll(WORK_URL_PATTERN)) {
-      const workId = match[1];
-      if (!workId || seenIds.has(workId)) continue;
-      seenIds.add(workId);
+    const match = line.match(WORK_URL_PATTERN);
+    if (!match) return;
+    const workId = match[1];
+    if (!workId || seenIds.has(workId)) return;
+    seenIds.add(workId);
 
-      const context = lines.slice(Math.max(0, index - CONTEXT_LINES), index);
-      const title = extractTitle(context) ?? `Lancers案件 ${workId}`;
-      const budgetText = extractBudget([...context, line]);
-
-      candidates.push({
-        url: canonicalWorkUrl(workId),
-        title,
-        ...(budgetText ? { budgetText } : {}),
-      });
-    }
+    const title = findNearestTitle(lines, index) ?? `Lancers案件 ${workId}`;
+    candidates.push({ url: canonicalWorkUrl(workId), title });
   });
 
   return candidates;
 }
 
-/** URL直前の「URLでも区切り線でもない最も近い非空行」をタイトルとみなす。 */
-function extractTitle(contextLines: readonly string[]): string | null {
-  for (let i = contextLines.length - 1; i >= 0; i--) {
-    const line = (contextLines[i] ?? '').trim();
+function findNearestTitle(lines: readonly string[], urlIndex: number): string | null {
+  for (let i = urlIndex - 1; i >= Math.max(0, urlIndex - 4); i--) {
+    const line = (lines[i] ?? '').trim();
     if (!line) continue;
     if (/^https?:\/\//.test(line)) continue;
-    if (/^[-=_*■□▼▽─━]+$/.test(line)) continue;
-    if (BUDGET_PATTERN.test(line) && line.length < 30) continue; // 予算だけの行はタイトルにしない
-    return cleanTitle(line);
-  }
-  return null;
-}
-
-function cleanTitle(line: string): string {
-  // 行頭の装飾記号と半角角括弧のみ除去する(【】は案件タイトルの一部なので残す)
-  return line
-    .replace(/^[・*▼■□●◆\s]+/, '')
-    .replace(/[\[\]]/g, '')
-    .trim();
-}
-
-function extractBudget(contextLines: readonly string[]): string | null {
-  for (let i = contextLines.length - 1; i >= 0; i--) {
-    const line = (contextLines[i] ?? '').trim();
-    const match = line.match(BUDGET_PATTERN);
-    if (match) {
-      const value = (match[1] ?? match[2] ?? match[3] ?? '').trim();
-      if (value) return value;
-    }
+    if (/^[-=_*■□▼▽─━…]+$/.test(line)) continue;
+    return line.replace(/^[・*▼■□●◆\s]+/, '').trim();
   }
   return null;
 }
