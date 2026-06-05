@@ -21,6 +21,7 @@ async function main(): Promise<void> {
     generator: new ClaudeProposalGenerator(config.ANTHROPIC_API_KEY),
     notion: createNotionProjection(config.NOTION_TOKEN, config.NOTION_DATABASE_ID, db),
     sendApprovalCard: async (job, proposal) => approvalBot.sendApprovalCard(job, proposal),
+    notify: async (text) => approvalBot.notify(text),
   };
 
   const approvalBot = createApprovalBot(
@@ -35,7 +36,11 @@ async function main(): Promise<void> {
     console.warn('[gmail] OAuth未設定のためポーリングは無効です(npm run gmail:auth で設定)');
   }
 
+  // 排他ロック: 前のtickが終わるまで次のtickを開始しない(二重処理防止)
+  let tickRunning = false;
   async function tick(): Promise<void> {
+    if (tickRunning) return;
+    tickRunning = true;
     try {
       if (gmail) {
         const newJobs = await pollGmail(gmail, db, config.GMAIL_QUERY);
@@ -46,6 +51,8 @@ async function main(): Promise<void> {
       await processNewJobs(deps);
     } catch (error) {
       console.error('[tick] エラー:', error);
+    } finally {
+      tickRunning = false;
     }
   }
 

@@ -64,6 +64,9 @@ async function main(): Promise<void> {
       console.log('4. Telegramに承認カードを送信しました');
       return message.message_id;
     },
+    notify: async (text) => {
+      await bot.api.sendMessage(config.TELEGRAM_CHAT_ID, text, { parse_mode: 'HTML' });
+    },
   };
 
   console.log('2. スコアリング → 3. 提案文生成(Claude API)…');

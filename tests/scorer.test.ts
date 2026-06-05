@@ -41,6 +41,7 @@ function makeJob(title: string, description = ''): Job {
     scoreReason: null,
     notionPageId: null,
     telegramMessageId: null,
+    submittedAt: null,
     createdAt: '',
     updatedAt: '',
   };

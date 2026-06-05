@@ -27,6 +27,7 @@ export interface Job {
   readonly scoreReason: string | null;
   readonly notionPageId: string | null;
   readonly telegramMessageId: number | null;
+  readonly submittedAt: string | null;
   readonly createdAt: string;
   readonly updatedAt: string;
 }

@@ -16,6 +16,7 @@ interface JobRow {
   score_reason: string | null;
   notion_page_id: string | null;
   telegram_message_id: number | null;
+  submitted_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -36,6 +37,7 @@ function toJob(row: JobRow): Job {
     scoreReason: row.score_reason,
     notionPageId: row.notion_page_id,
     telegramMessageId: row.telegram_message_id,
+    submittedAt: row.submitted_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -51,12 +53,10 @@ export function insertJobIfNew(
   source: Job['source'],
   emailId: string | null,
 ): Job | null {
-  const existing = db.prepare('SELECT id FROM jobs WHERE url = ?').get(candidate.url);
-  if (existing) return null;
-
+  // INSERT OR IGNORE + UNIQUE(url) で SELECT→INSERT 間のレースを排除する
   const result = db
     .prepare(
-      `INSERT INTO jobs (source, email_id, url, title, description, budget_text, category, deadline)
+      `INSERT OR IGNORE INTO jobs (source, email_id, url, title, description, budget_text, category, deadline)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
@@ -69,6 +69,7 @@ export function insertJobIfNew(
       candidate.category ?? null,
       candidate.deadline ?? null,
     );
+  if (result.changes === 0) return null;
   return getJob(db, Number(result.lastInsertRowid));
 }
 
@@ -85,10 +86,13 @@ export function listJobsByStatus(db: Database.Database, status: JobStatus): read
 }
 
 export function updateJobStatus(db: Database.Database, id: number, status: JobStatus): Job | null {
-  db.prepare(`UPDATE jobs SET status = ?, updated_at = datetime('now') WHERE id = ?`).run(
-    status,
-    id,
-  );
+  // submitted への初回遷移時のみ submitted_at を確定する(再同期で上書きされない)
+  db.prepare(
+    `UPDATE jobs SET status = ?,
+       submitted_at = CASE WHEN ? = 'submitted' THEN COALESCE(submitted_at, datetime('now')) ELSE submitted_at END,
+       updated_at = datetime('now')
+     WHERE id = ?`,
+  ).run(status, status, id);
   return getJob(db, id);
 }
 
@@ -125,9 +129,22 @@ export function setJobTelegramMessageId(
 export function countSubmittedToday(db: Database.Database): number {
   const row = db
     .prepare(
-      `SELECT COUNT(*) AS n FROM audit_log
-       WHERE event = 'status:submitted' AND date(created_at, 'localtime') = date('now', 'localtime')`,
+      `SELECT COUNT(*) AS n FROM jobs
+       WHERE submitted_at IS NOT NULL
+         AND date(submitted_at, 'localtime') = date('now', 'localtime')`,
     )
     .get() as { n: number };
   return row.n;
+}
+
+/** メールを処理済みとして記録する。 @returns 新規記録ならtrue、既処理ならfalse */
+export function markEmailProcessed(db: Database.Database, emailId: string): boolean {
+  const result = db
+    .prepare('INSERT OR IGNORE INTO processed_emails (email_id) VALUES (?)')
+    .run(emailId);
+  return result.changes > 0;
+}
+
+export function isEmailProcessed(db: Database.Database, emailId: string): boolean {
+  return !!db.prepare('SELECT 1 FROM processed_emails WHERE email_id = ?').get(emailId);
 }

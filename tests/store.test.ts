@@ -6,6 +6,9 @@ import {
   getJob,
   listJobsByStatus,
   updateJobStatus,
+  countSubmittedToday,
+  markEmailProcessed,
+  isEmailProcessed,
 } from '../src/store/jobs.js';
 import { insertProposal, getLatestProposal, listProposals } from '../src/store/proposals.js';
 
@@ -40,6 +43,22 @@ describe('jobs store', () => {
     const job = insertJobIfNew(db, CANDIDATE, 'dummy', null);
     updateJobStatus(db, job!.id, 'pending_approval');
     expect(getJob(db, job!.id)?.status).toBe('pending_approval');
+  });
+
+  it('submitted_atは初回遷移時に確定し、再更新で上書きされない', () => {
+    const job = insertJobIfNew(db, CANDIDATE, 'dummy', null);
+    const first = updateJobStatus(db, job!.id, 'submitted');
+    expect(first?.submittedAt).not.toBeNull();
+    const again = updateJobStatus(db, job!.id, 'submitted');
+    expect(again?.submittedAt).toBe(first?.submittedAt);
+    expect(countSubmittedToday(db)).toBe(1);
+  });
+
+  it('メール処理の冪等性が保たれる', () => {
+    expect(isEmailProcessed(db, 'mail-1')).toBe(false);
+    expect(markEmailProcessed(db, 'mail-1')).toBe(true);
+    expect(markEmailProcessed(db, 'mail-1')).toBe(false);
+    expect(isEmailProcessed(db, 'mail-1')).toBe(true);
   });
 });
 

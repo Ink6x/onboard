@@ -64,8 +64,9 @@ function buildProperties(job: Job, proposal?: Proposal | null) {
     判定理由: { rich_text: textChunks(job.scoreReason ?? '') },
     提案文: { rich_text: textChunks(proposal?.content ?? '') },
     メモ: { rich_text: textChunks(proposal?.editInstruction ?? '') },
-    ...(job.status === 'submitted'
-      ? { 応募日時: { date: { start: new Date().toISOString() } } }
+    // 応募日時はDB側で確定したタイムスタンプを使う(再同期で上書きされない)
+    ...(job.submittedAt
+      ? { 応募日時: { date: { start: new Date(`${job.submittedAt}Z`).toISOString() } } }
       : {}),
   };
 }

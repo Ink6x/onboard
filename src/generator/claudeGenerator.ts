@@ -28,14 +28,16 @@ export class ClaudeProposalGenerator implements ProposalGenerator {
     previousProposal?: string,
   ): Promise<string> {
     let feedback = '';
+    let lastProposal = '';
+    // 計MAX_ATTEMPTS回まで呼び出す(初回+自己検査NG時の再生成1回)
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-      const proposal = await this.callClaude(job, profile, score, editInstruction, previousProposal, feedback);
-      const issues = validateProposal(proposal, job);
-      if (issues.length === 0) return proposal;
+      lastProposal = await this.callClaude(job, profile, score, editInstruction, previousProposal, feedback);
+      const issues = validateProposal(lastProposal, job);
+      if (issues.length === 0) return lastProposal;
       feedback = `前回の出力には次の問題がありました。修正してください: ${issues.join(' / ')}`;
     }
     // 再生成しても完璧でない場合は最後の出力を返す(人間が承認前に確認するため致命的ではない)
-    return this.callClaude(job, profile, score, editInstruction, previousProposal, feedback);
+    return lastProposal;
   }
 
   private async callClaude(

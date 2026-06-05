@@ -18,8 +18,14 @@ CREATE TABLE IF NOT EXISTS jobs (
   score_reason TEXT,
   notion_page_id TEXT,
   telegram_message_id INTEGER,
+  submitted_at TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS processed_emails (
+  email_id TEXT PRIMARY KEY,
+  processed_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
 CREATE TABLE IF NOT EXISTS proposals (

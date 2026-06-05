@@ -58,9 +58,10 @@ function extractTitle(contextLines: readonly string[]): string | null {
 }
 
 function cleanTitle(line: string): string {
+  // 行頭の装飾記号と半角角括弧のみ除去する(【】は案件タイトルの一部なので残す)
   return line
     .replace(/^[・*▼■□●◆\s]+/, '')
-    .replace(/[【】\[\]]/g, (c) => (c === '【' || c === '】' ? c : ''))
+    .replace(/[\[\]]/g, '')
     .trim();
 }
 

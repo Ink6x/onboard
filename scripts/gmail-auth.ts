@@ -44,8 +44,14 @@ async function main(): Promise<void> {
   console.log(`   GMAIL_REFRESH_TOKEN=${tokens.refresh_token}`);
 }
 
+const AUTH_TIMEOUT_MS = 5 * 60 * 1000;
+
 function waitForCode(): Promise<string> {
   return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      server.close();
+      reject(new Error('5分以内に認可が完了しませんでした。再実行してください'));
+    }, AUTH_TIMEOUT_MS);
     const server = createServer((req, res) => {
       const requestUrl = new URL(req.url ?? '/', REDIRECT_URI);
       if (requestUrl.pathname !== '/callback') {
@@ -60,6 +66,7 @@ function waitForCode(): Promise<string> {
       }
       res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
       res.end('認証完了。このタブは閉じて構いません。');
+      clearTimeout(timeout);
       server.close();
       resolve(code);
     });

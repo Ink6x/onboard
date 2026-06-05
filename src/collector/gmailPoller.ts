@@ -3,7 +3,7 @@ import type Database from 'better-sqlite3';
 import type { Config } from '../config.js';
 import type { Job } from '../types.js';
 import { parseLancersEmail } from './parser.js';
-import { insertJobIfNew } from '../store/jobs.js';
+import { insertJobIfNew, isEmailProcessed, markEmailProcessed } from '../store/jobs.js';
 import { logEvent } from '../store/audit.js';
 
 /** Gmail APIクライアントを生成する。リフレッシュトークン未設定なら null。 */
@@ -33,10 +33,7 @@ export async function pollGmail(
 
   for (const message of messages) {
     if (!message.id) continue;
-    const alreadySeen = db
-      .prepare('SELECT 1 FROM audit_log WHERE event = ? AND detail = ?')
-      .get('email:processed', JSON.stringify({ emailId: message.id }));
-    if (alreadySeen) continue;
+    if (isEmailProcessed(db, message.id)) continue;
 
     const full = await gmail.users.messages.get({ userId: 'me', id: message.id, format: 'full' });
     const body = extractPlainText(full.data.payload);
@@ -50,6 +47,7 @@ export async function pollGmail(
         }
       }
     }
+    markEmailProcessed(db, message.id);
     logEvent(db, null, 'email:processed', { emailId: message.id });
   }
 
@@ -69,13 +67,25 @@ function extractPlainText(payload: gmail_v1.Schema$MessagePart | undefined): str
   // text/plainが無いHTMLメールはタグを落として代用する
   if (payload.mimeType === 'text/html' && payload.body?.data) {
     const html = Buffer.from(payload.body.data, 'base64url').toString('utf8');
-    return html
-      .replace(/<style[\s\S]*?<\/style>/gi, '')
-      .replace(/<br\s*\/?>/gi, '\n')
-      .replace(/<\/(p|div|tr|li|h\d)>/gi, '\n')
-      .replace(/<[^>]+>/g, '')
-      .replace(/&amp;/g, '&')
-      .replace(/&nbsp;/g, ' ');
+    return decodeHtmlEntities(
+      html
+        .replace(/<style[\s\S]*?<\/style>/gi, '')
+        .replace(/<br\s*\/?>/gi, '\n')
+        .replace(/<\/(p|div|tr|li|h\d)>/gi, '\n')
+        .replace(/<[^>]+>/g, ''),
+    );
   }
   return null;
+}
+
+/** 主要なHTMLエンティティを復元する(&amp; は他の復元後に最後に処理する)。 */
+function decodeHtmlEntities(text: string): string {
+  return text
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#0?39;/g, "'")
+    .replace(/&#(\d+);/g, (_, code: string) => String.fromCodePoint(Number(code)))
+    .replace(/&amp;/g, '&');
 }

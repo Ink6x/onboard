@@ -31,7 +31,14 @@ export type Profile = z.infer<typeof profileSchema>;
 
 /** profile.yaml(提案文生成の唯一の正)を読み込んで検証する。 */
 export function loadProfile(path: string): Profile {
-  const raw = readFileSync(path, 'utf8');
+  let raw: string;
+  try {
+    raw = readFileSync(path, 'utf8');
+  } catch {
+    throw new Error(
+      `profile.yaml が見つかりません: ${path}\n(リポジトリ同梱の profile.yaml を確認するか、PROFILE_PATH を設定してください)`,
+    );
+  }
   const parsed = profileSchema.safeParse(parse(raw));
   if (!parsed.success) {
     const issues = parsed.error.issues
