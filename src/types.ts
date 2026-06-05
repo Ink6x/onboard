@@ -28,6 +28,7 @@ export interface Job {
   readonly notionPageId: string | null;
   readonly telegramMessageId: number | null;
   readonly submittedAt: string | null;
+  readonly proposalCount: number | null;
   readonly createdAt: string;
   readonly updatedAt: string;
 }

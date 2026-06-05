@@ -5,6 +5,7 @@ import type { Job } from '../types.js';
 import { parseLancersEmail } from './parser.js';
 import { insertJobIfNew, isEmailProcessed, markEmailProcessed } from '../store/jobs.js';
 import { logEvent } from '../store/audit.js';
+import { htmlToText } from '../lib/html.js';
 
 /** Gmail APIクライアントを生成する。リフレッシュトークン未設定なら null。 */
 export function createGmailClient(config: Config): gmail_v1.Gmail | null {
@@ -67,25 +68,7 @@ function extractPlainText(payload: gmail_v1.Schema$MessagePart | undefined): str
   // text/plainが無いHTMLメールはタグを落として代用する
   if (payload.mimeType === 'text/html' && payload.body?.data) {
     const html = Buffer.from(payload.body.data, 'base64url').toString('utf8');
-    return decodeHtmlEntities(
-      html
-        .replace(/<style[\s\S]*?<\/style>/gi, '')
-        .replace(/<br\s*\/?>/gi, '\n')
-        .replace(/<\/(p|div|tr|li|h\d)>/gi, '\n')
-        .replace(/<[^>]+>/g, ''),
-    );
+    return htmlToText(html);
   }
   return null;
-}
-
-/** 主要なHTMLエンティティを復元する(&amp; は他の復元後に最後に処理する)。 */
-function decodeHtmlEntities(text: string): string {
-  return text
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#0?39;/g, "'")
-    .replace(/&#(\d+);/g, (_, code: string) => String.fromCodePoint(Number(code)))
-    .replace(/&amp;/g, '&');
 }

@@ -10,9 +10,11 @@ import {
   getJob,
   listJobsByStatus,
   setJobTelegramMessageId,
+  updateJobDetail,
   updateJobScore,
   updateJobStatus,
 } from './store/jobs.js';
+import { fetchJobDetail } from './collector/detailFetcher.js';
 import { getLatestProposal, insertProposal } from './store/proposals.js';
 import { logEvent } from './store/audit.js';
 
@@ -85,8 +87,25 @@ export async function processNewJobs(deps: PipelineDeps): Promise<void> {
 
 async function processJob(deps: PipelineDeps, job: Job): Promise<void> {
   // 並行tickによる二重処理を防ぐ: 現在もnewであることを確認してから進める
-  const fresh = getJob(deps.db, job.id);
+  let fresh = getJob(deps.db, job.id);
   if (!fresh || fresh.status !== 'new') return;
+
+  // 案件詳細ページから依頼概要・提案数を取得する(スコア精度と提案文の質に直結)。
+  // 失敗してもメール情報だけで続行する。
+  if (!fresh.description && fresh.url.includes('lancers.jp/work/detail/')) {
+    const detail = await fetchJobDetail(fresh.url);
+    if (detail) {
+      const enriched = updateJobDetail(deps.db, fresh.id, {
+        description: detail.description,
+        proposalCount: detail.proposalCount,
+      });
+      logEvent(deps.db, fresh.id, 'job:detail_fetched', {
+        hasDescription: !!detail.description,
+        proposalCount: detail.proposalCount,
+      });
+      if (enriched) fresh = enriched;
+    }
+  }
 
   const score = deps.scorer.score(fresh, deps.profile);
   const scored = updateJobScore(deps.db, fresh.id, score.score, score.reason);

@@ -65,9 +65,13 @@ export class ClaudeProposalGenerator implements ProposalGenerator {
           role: 'user',
           content: `# 案件情報
 タイトル: ${job.title}
-URL: ${job.url}
+カテゴリ: ${job.category ?? '不明'}
 予算: ${job.budgetText ?? '不明'}
-詳細: ${job.description ?? '(詳細未取得。タイトルから推測される範囲で書くこと)'}
+募集締切: ${job.deadline ?? '不明'}
+既存提案数: ${job.proposalCount !== null ? `${job.proposalCount}件以上(競争が激しいため差別化を強く意識すること)` : '不明'}
+
+# 依頼概要(クライアントが書いた募集要項)
+${job.description ?? '(詳細未取得。タイトルから推測される範囲で書き、憶測の断定は避けること)'}
 
 # 応募者プロファイル
 名前: ${profile.displayName}
@@ -84,7 +88,7 @@ ${worksToShow.map((w) => `- ${w.name}: ${w.summary} / 成果: ${w.outcomes.join(
 ${editBlock}
 ${feedback ? `\n# 修正フィードバック\n${feedback}` : ''}
 
-提案文のみを出力してください(前置き・解説は不要)。`,
+提案文のみを出力してください(前置き・解説・マークダウン見出しは不要)。`,
         },
       ],
     });
@@ -100,13 +104,24 @@ ${feedback ? `\n# 修正フィードバック\n${feedback}` : ''}
 const SYSTEM_PROMPT = `あなたはLancers(ランサーズ)で受注率の高い提案文を書く専門家です。
 以下のベストプラクティスを厳守してください:
 
-1. 構成は7パーツ: 挨拶+案件への言及 → 経歴 → 実績(数値) → 案件への具体的提案 → 稼働時間・納期 → 特典/安心材料 → 締め
-2. 全体で300〜500文字(これは厳守。500字を超えない)
-3. 冒頭1〜2文に必ず案件名のキーワードを入れ、募集要項を読んだことが伝わる具体的な一文を書く。「はじめまして」だけで始めない
-4. 実績は数値で語る(時間削減、コスト削減率など)。案件に関係ある実績のみ
-5. 価格・納期・返信速度は抽象表現を避けて具体数値で書く
-6. 丁寧だが過剰にへりくだらない。信頼性(連絡が取れる・納期を守る)を技術力と同等に訴求する
-7. 汎用文の使い回しに見える表現を避け、この案件固有の課題に踏み込む`;
+# 構成(7パーツ。この順序を守る)
+1. 挨拶+案件への言及: 冒頭1〜2文に必ず案件名のキーワードと、依頼概要に書かれた固有の課題・状況への言及を入れる。「はじめまして」だけで始めない。依頼概要を読んだ人にしか書けない一文にする
+2. 経歴: 案件に関係ある部分だけ1〜2文
+3. 実績: 数値で語る(時間削減、コスト削減率など)。案件に関係ある実績のみ厳選
+4. 案件への具体的提案: 依頼概要の要件に対して「どう作るか」を一歩踏み込んで書く。技術選定や進め方の方針を1つ具体的に示す
+5. 稼働時間・納期: 具体数値で
+6. 安心材料: 返信速度、承認フロー付き開発、納品後の説明など
+7. 締め: 簡潔に。質問への回答も歓迎する姿勢
+
+# ルール
+- 全体で300〜500文字(厳守。500字を超えない)
+- 依頼概要に「必要なスキル」「希望する言語・ツール」「依頼先選びで重視する点」「応募時に〜を記載してください」等の指定がある場合、必ずそれに応える(指定スキルの経験を明記、記載指示には回答)
+- 依頼概要に質問形式の項目があれば先回りして簡潔に答える
+- 価格・納期・返信速度は抽象表現を避けて具体数値で書く
+- 丁寧だが過剰にへりくだらない。信頼性(連絡が取れる・納期を守る)を技術力と同等に訴求する
+- 汎用文の使い回しに見える表現(「ぜひお手伝いさせてください」だけ等)を避け、この案件固有の課題に踏み込む
+- 依頼概要が未取得の場合、書かれていない要件を断定しない(「〜と推察します」に留める)
+- 箇条書きや【】見出しは2箇所まで。読みやすい段落文を基本とする`;
 
 /** 自己検査: 字数レンジと案件キーワードの含有をチェックする。 */
 export function validateProposal(proposal: string, job: Job): readonly string[] {
@@ -114,17 +129,20 @@ export function validateProposal(proposal: string, job: Job): readonly string[] 
   if (proposal.length < MIN_LENGTH) issues.push(`${MIN_LENGTH}字未満(現在${proposal.length}字)`);
   if (proposal.length > MAX_LENGTH + 100) issues.push(`${MAX_LENGTH}字を大幅超過(現在${proposal.length}字)`);
 
-  const titleKeywords = extractKeywords(job.title);
-  const mentionsJob = titleKeywords.some((keyword) => proposal.includes(keyword));
-  if (titleKeywords.length > 0 && !mentionsJob) issues.push('案件タイトルのキーワードが含まれていない');
+  if (!mentionsTitle(proposal, job.title)) issues.push('案件タイトルのキーワードが含まれていない');
 
   return issues;
 }
 
-/** タイトルから3文字以上の名詞っぽい語を雑に抽出する(v1ヒューリスティック)。 */
-function extractKeywords(title: string): readonly string[] {
-  return title
-    .split(/[\s【】\[\]()()、。・/|]+/)
-    .map((token) => token.trim())
-    .filter((token) => token.length >= 3);
+/**
+ * タイトルへの言及チェック: 日本語は分かち書きできないため、
+ * タイトルの4文字スライディングウィンドウのいずれかが提案文に含まれればOKとする。
+ */
+function mentionsTitle(proposal: string, title: string): boolean {
+  const normalized = title.replace(/[\s【】\[\]()()、。・/|「」]+/g, '');
+  if (normalized.length < 4) return true; // 短すぎるタイトルは判定不能としてパス
+  for (let i = 0; i + 4 <= normalized.length; i++) {
+    if (proposal.includes(normalized.slice(i, i + 4))) return true;
+  }
+  return false;
 }

@@ -17,6 +17,7 @@ interface JobRow {
   notion_page_id: string | null;
   telegram_message_id: number | null;
   submitted_at: string | null;
+  proposal_count: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -38,6 +39,7 @@ function toJob(row: JobRow): Job {
     notionPageId: row.notion_page_id,
     telegramMessageId: row.telegram_message_id,
     submittedAt: row.submitted_at,
+    proposalCount: row.proposal_count,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -105,6 +107,22 @@ export function updateJobScore(
   db.prepare(
     `UPDATE jobs SET fit_score = ?, score_reason = ?, updated_at = datetime('now') WHERE id = ?`,
   ).run(fitScore, scoreReason, id);
+  return getJob(db, id);
+}
+
+/** 詳細ページ取得結果(依頼概要・業種・提案数)を反映する。 */
+export function updateJobDetail(
+  db: Database.Database,
+  id: number,
+  detail: { description?: string | null; proposalCount?: number | null },
+): Job | null {
+  db.prepare(
+    `UPDATE jobs SET
+       description = COALESCE(?, description),
+       proposal_count = COALESCE(?, proposal_count),
+       updated_at = datetime('now')
+     WHERE id = ?`,
+  ).run(detail.description ?? null, detail.proposalCount ?? null, id);
   return getJob(db, id);
 }
 

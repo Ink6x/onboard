@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS jobs (
   notion_page_id TEXT,
   telegram_message_id INTEGER,
   submitted_at TEXT,
+  proposal_count INTEGER,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -50,12 +51,27 @@ CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status);
 CREATE INDEX IF NOT EXISTS idx_audit_job ON audit_log(job_id);
 `;
 
-/** SQLite接続を開き、スキーマを適用して返す。 */
+/** SQLite接続を開き、スキーマ適用+不足カラムのマイグレーションをして返す。 */
 export function openDb(path: string): Database.Database {
   mkdirSync(dirname(path), { recursive: true });
   const db = new Database(path);
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
   db.exec(SCHEMA);
+  // CREATE TABLE IF NOT EXISTS は既存テーブルに列を足さないため、後方互換マイグレーション
+  ensureColumn(db, 'jobs', 'submitted_at', 'TEXT');
+  ensureColumn(db, 'jobs', 'proposal_count', 'INTEGER');
   return db;
+}
+
+function ensureColumn(
+  db: Database.Database,
+  table: string,
+  column: string,
+  type: string,
+): void {
+  const columns = db.pragma(`table_info(${table})`) as Array<{ name: string }>;
+  if (!columns.some((c) => c.name === column)) {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
+  }
 }

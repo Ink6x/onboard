@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { KeywordScorer } from '../src/generator/scorer.js';
+import { KeywordScorer, parseMaxBudgetYen } from '../src/generator/scorer.js';
 import type { Job } from '../src/types.js';
 import type { Profile } from '../src/generator/profile.js';
 
@@ -19,13 +19,14 @@ const profile: Profile = {
   categories: ['AI開発', '業務自動化'],
   ngKeywords: ['アダルト'],
   conditions: {
+    minBudgetYen: 50000,
     weeklyHours: '週20時間',
     responseSla: '24時間以内',
     firstDraftDays: '5営業日',
   },
 };
 
-function makeJob(title: string, description = ''): Job {
+function makeJob(title: string, description = '', budgetText: string | null = null): Job {
   return {
     id: 1,
     source: 'dummy',
@@ -33,7 +34,7 @@ function makeJob(title: string, description = ''): Job {
     url: 'https://www.lancers.jp/work/detail/1',
     title,
     description,
-    budgetText: null,
+    budgetText,
     category: null,
     deadline: null,
     status: 'new',
@@ -42,6 +43,7 @@ function makeJob(title: string, description = ''): Job {
     notionPageId: null,
     telegramMessageId: null,
     submittedAt: null,
+    proposalCount: null,
     createdAt: '',
     updatedAt: '',
   };
@@ -68,5 +70,35 @@ describe('KeywordScorer', () => {
     const result = scorer.score(makeJob('アダルトサイトの開発'), profile);
     expect(result.score).toBe(0);
     expect(result.reason).toContain('NGキーワード');
+  });
+
+  it('予算上限が希望最低額未満なら30点に頭打ちする', () => {
+    const result = scorer.score(
+      makeJob('【AI開発】ChatGPTとRAGを使った業務自動化', 'Next.jsも', '10,000円 ～ 30,000円'),
+      profile,
+    );
+    expect(result.score).toBeLessThanOrEqual(30);
+    expect(result.reason).toContain('予算上限');
+  });
+
+  it('予算が希望最低額以上なら頭打ちしない', () => {
+    const result = scorer.score(
+      makeJob('【AI開発】ChatGPTとRAGを使った業務自動化', 'Next.jsも', '100,000円 ～ 200,000円'),
+      profile,
+    );
+    expect(result.score).toBeGreaterThanOrEqual(60);
+  });
+});
+
+describe('parseMaxBudgetYen', () => {
+  it('レンジ表記から上限額を取り出す', () => {
+    expect(parseMaxBudgetYen('100,000円 ～ 200,000円')).toBe(200000);
+  });
+  it('単一金額にも対応する', () => {
+    expect(parseMaxBudgetYen('50,000円')).toBe(50000);
+  });
+  it('金額が無ければnull', () => {
+    expect(parseMaxBudgetYen('応相談')).toBeNull();
+    expect(parseMaxBudgetYen(null)).toBeNull();
   });
 });

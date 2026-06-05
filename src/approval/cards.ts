@@ -19,11 +19,14 @@ export function buildApprovalCard(job: Job, proposal: Proposal): string {
     proposal.content.length > 600
       ? `\n⚠️ <b>自己検査NG: 提案文が${proposal.content.length}字あります(推奨300〜500字)。編集で修正してください。</b>`
       : '';
+  const competitionNote =
+    job.proposalCount !== null ? ` / 既存提案 ${job.proposalCount}件以上` : '';
   const lines = [
     `<b>📋 応募承認リクエスト</b>`,
     ``,
     `<b>案件:</b> ${escapeHtml(job.title)}`,
-    `<b>予算:</b> ${escapeHtml(job.budgetText ?? '不明')}`,
+    `<b>カテゴリ:</b> ${escapeHtml(job.category ?? '不明')}${competitionNote}`,
+    `<b>予算:</b> ${escapeHtml(job.budgetText ?? '不明')} / <b>締切:</b> ${escapeHtml(job.deadline ?? '不明')}`,
     `<b>適合スコア:</b> ${job.fitScore ?? '-'} / 100`,
     `<b>判定理由:</b> ${escapeHtml(job.scoreReason ?? '-')}`,
     `<b>URL:</b> ${escapeHtml(job.url)}`,
