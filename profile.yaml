@@ -1,0 +1,87 @@
+# 提案文生成の唯一の正(source of truth)
+# portfolio/README.md と各ケーススタディから生成した最小版(v1)。
+# 側の完成後、訴求テンプレ・カテゴリ別の磨き込みを行う。
+
+displayName: Ink6x
+headline: AIワークフロー自動化 / フルスタックWebアプリ開発(Next.js・TypeScript)
+
+intro: >-
+  実業務に組み込むAIワークフロー自動化と、Next.js/TypeScriptによるWebアプリ開発を
+  専門にしています。AIに生成・要約を任せつつ、承認フロー・監査ログ・実行制御で
+  守る設計を得意とし、クライアント業務の工数を定量的に削減してきました。
+
+works:
+  - name: Coaching AI Workflow
+    summary: コーチング事業向けのAI業務自動化。Discord日次振り返り、週次・月次レポート自動生成、承認付きLINE配信、RAG検索、管理ダッシュボード。
+    outcomes:
+      - 週次レポート作成を週約150分から実質0分に削減
+      - 月次工程の入力tokenを89.8%削減
+    stack: [Discord Bot, Next.js, TypeScript, Supabase, LINE, RAG, Docker, LLM]
+    url: https://github.com/Ink6x/coaching-ai-workflow
+
+  - name: AI Workflow Automation
+    summary: 採用オペレーション向けのAI自動化基盤。AIは計画生成と要約、実行はPolicy Gate・Job Queue・Sandbox・監査ログで制御。
+    outcomes:
+      - 社員1人あたり最大月20時間、チーム全体で約60時間/月の工数削減
+    stack: [Slack, Playwright, Docker, AWS, Notion, LLM, TypeScript]
+    url: https://github.com/Ink6x/ai-workflow-automation
+
+  - name: Portfolio Site
+    summary: アニメーション・3D表現を含む公開ポートフォリオサイト。
+    outcomes: []
+    stack: [Next.js, React, TypeScript, Tailwind CSS, Framer Motion, Three.js]
+    url: https://github.com/Ink6x/Portfolio-site
+
+  - name: History Soul Matcher
+    summary: 顔写真から歴史上の人物との類似度を出すWebアプリ。
+    outcomes: []
+    stack: [Next.js, React, TypeScript, Anthropic SDK, Zod]
+    url: https://github.com/Ink6x/history-soul-matcher
+
+skills:
+  - AI
+  - ChatGPT
+  - Claude
+  - LLM
+  - RAG
+  - チャットボット
+  - 自動化
+  - 業務効率化
+  - Next.js
+  - React
+  - TypeScript
+  - Python
+  - FastAPI
+  - Supabase
+  - PostgreSQL
+  - LINE
+  - Discord
+  - Slack
+  - スクレイピング
+  - Playwright
+  - n8n
+  - GAS
+
+categories:
+  - AI開発
+  - AIチャットボット
+  - 業務自動化
+  - 業務効率化
+  - Webアプリ開発
+  - システム開発
+  - Webサイト制作
+  - API連携
+  - ツール開発
+
+ngKeywords:
+  - アダルト
+  - 出会い系
+  - 情報商材
+  - MLM
+  - ネットワークビジネス
+
+conditions:
+  minBudgetYen: 50000
+  weeklyHours: 週20時間
+  responseSla: ご連絡には24時間以内に返信します
+  firstDraftDays: 着手から5営業日以内に初回成果物を共有します
