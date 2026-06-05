@@ -1,5 +1,9 @@
 import type { Job, Proposal } from '../types.js';
 
+/** Telegramのメッセージ上限は4096字。カード全体が収まるよう提案文の表示を制限する。 */
+const MAX_PROPOSAL_DISPLAY = 2500;
+const MAX_MESSAGE_LENGTH = 4000;
+
 /** HTMLエスケープ(Telegram parse_mode: 'HTML' 用)。 */
 export function escapeHtml(text: string): string {
   return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -7,6 +11,14 @@ export function escapeHtml(text: string): string {
 
 /** 承認依頼カードの本文を組み立てる。 */
 export function buildApprovalCard(job: Job, proposal: Proposal): string {
+  const truncated = proposal.content.length > MAX_PROPOSAL_DISPLAY;
+  const displayContent = truncated
+    ? `${proposal.content.slice(0, MAX_PROPOSAL_DISPLAY)}\n…(表示上限のため省略。全文はNotionに保存済み)`
+    : proposal.content;
+  const warning =
+    proposal.content.length > 600
+      ? `\n⚠️ <b>自己検査NG: 提案文が${proposal.content.length}字あります(推奨300〜500字)。編集で修正してください。</b>`
+      : '';
   const lines = [
     `<b>📋 応募承認リクエスト</b>`,
     ``,
@@ -16,13 +28,22 @@ export function buildApprovalCard(job: Job, proposal: Proposal): string {
     `<b>判定理由:</b> ${escapeHtml(job.scoreReason ?? '-')}`,
     `<b>URL:</b> ${escapeHtml(job.url)}`,
     ``,
-    `<b>📝 提案文 (v${proposal.version}, ${proposal.content.length}字)</b>`,
-    `<blockquote>${escapeHtml(proposal.content)}</blockquote>`,
+    `<b>📝 提案文 (v${proposal.version}, ${proposal.content.length}字)</b>${warning}`,
+    `<blockquote>${escapeHtml(displayContent)}</blockquote>`,
   ];
   if (proposal.editInstruction) {
     lines.push(``, `<i>反映した修正指示: ${escapeHtml(proposal.editInstruction)}</i>`);
   }
-  return lines.join('\n');
+  return clampMessage(lines.join('\n'));
+}
+
+/**
+ * 最終ガード: HTMLタグの途中で切れると parse_mode: HTML が400を返すため、
+ * 上限超過時は blockquote を閉じて切り詰める。
+ */
+function clampMessage(text: string): string {
+  if (text.length <= MAX_MESSAGE_LENGTH) return text;
+  return `${text.slice(0, MAX_MESSAGE_LENGTH - 20)}…</blockquote>`;
 }
 
 /** 承認後(手動送信モード)の案内文。 */
