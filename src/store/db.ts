@@ -43,6 +43,12 @@ CREATE TABLE IF NOT EXISTS proposals (
   UNIQUE(job_id, version)
 );
 
+CREATE TABLE IF NOT EXISTS collector_state (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL,
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE TABLE IF NOT EXISTS audit_log (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   job_id INTEGER REFERENCES jobs(id),

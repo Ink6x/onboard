@@ -12,7 +12,30 @@ const envSchema = z.object({
   GMAIL_CLIENT_SECRET: z.string().default(''),
   GMAIL_REFRESH_TOKEN: z.string().default(''),
   GMAIL_QUERY: z.string().default('from:lancers.jp newer_than:7d'),
-  POLL_INTERVAL_MINUTES: z.coerce.number().int().positive().default(15),
+  // メール収集の実行時刻 (HH:MM)。Lancersの案件紹介メールは毎日10時台に1通のみ届くため、
+  // 間隔ポーリングではなく毎日この時刻に1回だけ実行する。
+  POLL_DAILY_AT: z
+    .string()
+    .regex(/^([01]?\d|2[0-3]):[0-5]\d$/, 'POLL_DAILY_AT must be HH:MM (e.g. 10:30)')
+    .default('10:30'),
+  // === Lancers検索一覧の直接巡回(Web収集) ===
+  // 巡回間隔(分)。0で無効。実際の発火時刻には±5分のジッターが乗る。
+  WEB_POLL_INTERVAL_MIN: z.coerce.number().int().min(0).default(60),
+  // 巡回を行う時間帯(この範囲外のtickはスキップ)
+  WEB_POLL_HOURS_START: z.coerce.number().int().min(0).max(23).default(9),
+  WEB_POLL_HOURS_END: z.coerce.number().int().min(1).max(24).default(22),
+  // キーワード検索のローテーションリスト(カンマ区切り)
+  WEB_SEARCH_KEYWORDS: z
+    .string()
+    .default('AI,生成AI,ChatGPT,LLM,チャットボット,自動化,業務効率化,RAG,スクレイピング,GAS,n8n,Next.js'),
+  // カテゴリ検索のローテーションリスト(/work/search/ 以下のパス、カンマ区切り)
+  WEB_SEARCH_CATEGORIES: z
+    .string()
+    .default('system/ai,system/ai_automation,system/chatbot,system/chatgpt,system/tool,system/websystem,web'),
+  // 検索の予算下限(円)。0で無効。エージェント求人の混入を減らす効果もある。
+  WEB_SEARCH_BUDGET_FROM: z.coerce.number().int().min(0).default(10000),
+  // 1tickで巡回する検索URLの最大数(リクエスト予算。リストを増やしても頻度は一定)
+  WEB_TARGETS_PER_TICK: z.coerce.number().int().min(1).default(4),
   MAX_APPLICATIONS_PER_DAY: z.coerce.number().int().positive().default(3),
   MIN_FIT_SCORE: z.coerce.number().int().min(0).max(100).default(60),
   SUBMIT_MODE: z.enum(['manual', 'auto']).default('manual'),
