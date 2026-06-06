@@ -16,7 +16,7 @@ export type JobStatus = (typeof JOB_STATUSES)[number];
 
 export interface Job {
   readonly id: number;
-  readonly source: 'gmail' | 'web' | 'dummy';
+  readonly source: 'gmail' | 'web' | 'web_loggedin' | 'dummy';
   readonly emailId: string | null;
   readonly url: string;
   readonly title: string;

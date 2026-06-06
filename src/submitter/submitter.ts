@@ -3,6 +3,7 @@ import type { Page } from 'playwright';
 import type { Job } from '../types.js';
 import type { BidValues } from './bidValues.js';
 import { launchBrowser, isLoggedIn, type BrowserSession } from './browser.js';
+import { withBrowserLock } from './browserLock.js';
 import { LANCERS_SELECTORS, findFirst } from './selectors.js';
 
 export type SubmitStage = 'fill' | 'submit';
@@ -36,6 +37,16 @@ export class LancersSubmitter {
   }
 
   async run(job: Job, bid: BidValues, proposalText: string, stage: SubmitStage): Promise<SubmitResult> {
+    // 共有プロファイルの同時起動を防ぐ(Webログイン巡回と排他)
+    return withBrowserLock(() => this.runLocked(job, bid, proposalText, stage));
+  }
+
+  private async runLocked(
+    job: Job,
+    bid: BidValues,
+    proposalText: string,
+    stage: SubmitStage,
+  ): Promise<SubmitResult> {
     let session: BrowserSession | null = null;
     try {
       session = await launchBrowser({

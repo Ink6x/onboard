@@ -21,6 +21,7 @@
     "lancers:testfill": "tsx scripts/test-fill.ts",
     "requeue": "tsx scripts/requeue.ts",
     "web:collect": "tsx scripts/web-collect-once.ts",
+    "lancers:survey": "tsx scripts/lancers-login-survey.ts",
     "e2e:dummy": "tsx scripts/inject-dummy.ts"
   },
   "dependencies": {

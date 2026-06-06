@@ -36,6 +36,21 @@ const envSchema = z.object({
   WEB_SEARCH_BUDGET_FROM: z.coerce.number().int().min(0).default(10000),
   // 1tickで巡回する検索URLの最大数(リクエスト予算。リストを増やしても頻度は一定)
   WEB_TARGETS_PER_TICK: z.coerce.number().int().min(1).default(4),
+  // === ログイン巡回(限定公開・完全非公開案件の収集) ===
+  // 有効化。ログイン済みプロファイル(npm run lancers:login)が前提。
+  WEB_LOGGED_IN_ENABLED: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((v) => v === 'true'),
+  // ログイン巡回の間隔(分)。アカウント帰属の足跡が乗るため匿名より低頻度にする。
+  WEB_LOGGED_IN_INTERVAL_MIN: z.coerce.number().int().min(0).default(240),
+  // 1日あたりのログイン一覧取得の上限(安全弁。超えたらその日は匿名のみ)
+  WEB_LOGGED_IN_MAX_PER_DAY: z.coerce.number().int().min(0).default(20),
+  // ログイン巡回をheadlessで行うか(false=実ブラウザ表示。常駐運用は通常true)
+  WEB_LOGGED_IN_HEADLESS: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((v) => v === 'true'),
   MAX_APPLICATIONS_PER_DAY: z.coerce.number().int().positive().default(3),
   MIN_FIT_SCORE: z.coerce.number().int().min(0).max(100).default(60),
   SUBMIT_MODE: z.enum(['manual', 'auto']).default('manual'),
