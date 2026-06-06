@@ -19,6 +19,7 @@
     "lancers:login": "tsx scripts/lancers-login.ts",
     "lancers:calibrate": "tsx scripts/lancers-calibrate.ts",
     "lancers:testfill": "tsx scripts/test-fill.ts",
+    "requeue": "tsx scripts/requeue.ts",
     "e2e:dummy": "tsx scripts/inject-dummy.ts"
   },
   "dependencies": {
