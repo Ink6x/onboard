@@ -61,13 +61,27 @@ export class LancersSubmitter {
         return { status: 'filled', screenshotPath };
       }
 
-      // stage === 'submit': 送信ボタンを押す
+      // stage === 'submit': 提案フォームは 入力 → 確認 → 完了 の3ステップ。
+      // ① 入力ページの「同意して提案する」(#form_end)で確認ページへ進む
       const submitButton = await findFirst(page, LANCERS_SELECTORS.submitButton);
       if (!submitButton) {
-        return { status: 'error', message: '送信ボタンが見つかりませんでした', screenshotPath };
+        return { status: 'error', message: '送信ボタン(入力→確認)が見つかりませんでした', screenshotPath };
       }
       await submitButton.click();
-      await page.waitForTimeout(3000);
+
+      // ② 確認ページの「利用規約に同意して提案する」で実際に送信する
+      const finalButton = await findFirst(page, LANCERS_SELECTORS.finalSubmitButton, 10000);
+      if (!finalButton) {
+        const confirmShot = `${this.options.screenshotDir}/job-${job.id}-confirm.png`;
+        await page.screenshot({ path: confirmShot, fullPage: true });
+        return {
+          status: 'error',
+          message: '確認ページの最終送信ボタンが見つかりませんでした(入力エラーの可能性)',
+          screenshotPath: confirmShot,
+        };
+      }
+      await finalButton.click();
+      await page.waitForTimeout(3500);
 
       const resultShot = `${this.options.screenshotDir}/job-${job.id}-result.png`;
       await page.screenshot({ path: resultShot, fullPage: true });
@@ -142,9 +156,12 @@ export class LancersSubmitter {
     for (const indicator of LANCERS_SELECTORS.successIndicator) {
       if ((await page.locator(indicator).count()) > 0) return true;
     }
-    // 提案完了ページへの遷移を完了URLパターンで判定する。
-    // /mypage や /proposals は通常画面でも出るため使わない(誤検知防止)。
-    return /\/(complete|thanks|thanksgiving|done)/i.test(page.url());
+    // 完了URLパターン(/proposeや/completeへ遷移)
+    if (/\/(complete|thanks|done|propose_complete|proposed)/i.test(page.url())) return true;
+    // フォールバック: 確認ページの最終ボタンが消えていれば完了ページへ遷移したとみなす。
+    // (送信失敗なら確認ページに留まり最終ボタンが残るため)
+    const stillOnConfirm = await findFirst(page, LANCERS_SELECTORS.finalSubmitButton, 1500);
+    return stillOnConfirm === null;
   }
 }
 

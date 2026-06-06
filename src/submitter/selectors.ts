@@ -20,8 +20,10 @@ export interface SubmitSelectors {
   readonly amountInput: readonly string[];
   /** 計画の完了予定日(日付)入力欄 */
   readonly completionDateInput: readonly string[];
-  /** 送信(同意して提案する)ボタン */
+  /** 入力ページ→確認ページへ進むボタン(同意して提案する) */
   readonly submitButton: readonly string[];
+  /** 確認ページの最終送信ボタン(利用規約に同意して提案する) */
+  readonly finalSubmitButton: readonly string[];
   /** 送信完了の判定に使う要素 */
   readonly successIndicator: readonly string[];
 }
@@ -59,10 +61,18 @@ export const LANCERS_SELECTORS: SubmitSelectors = {
     'input[name="send"]',
     'input[type="submit"][value*="同意して提案する"]',
   ],
+  finalSubmitButton: [
+    // 確認ページの最終送信。「利用規約に同意して提案する」
+    'button:has-text("利用規約に同意して提案する")',
+    'input[type="submit"][value*="利用規約に同意して提案する"]',
+    'a:has-text("利用規約に同意して提案する")',
+  ],
   successIndicator: [
     'text=提案を送信しました',
     'text=提案が完了',
     'text=ご提案ありがとうございます',
+    'text=提案を受け付けました',
+    'text=ありがとうございました',
   ],
 };
 
