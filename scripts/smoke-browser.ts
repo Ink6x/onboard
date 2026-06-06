@@ -13,8 +13,8 @@ async function main(): Promise<void> {
   const page = await session.newPage();
   await page.goto('https://www.lancers.jp/user/login', { waitUntil: 'domcontentloaded' });
 
-  const ua = await page.evaluate(() => navigator.userAgent);
-  const webdriver = await page.evaluate(() => navigator.webdriver);
+  const ua = (await page.evaluate('navigator.userAgent')) as string;
+  const webdriver = (await page.evaluate('navigator.webdriver')) as boolean;
   const emailField = await page.locator('input[type="email"], input[name*="email"], input[name="data[User][email]"]').count();
   const passField = await page.locator('input[type="password"]').count();
   const googleBtn = await page.locator('text=Google').count();

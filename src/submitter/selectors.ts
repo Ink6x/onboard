@@ -10,53 +10,61 @@
  */
 
 export interface SubmitSelectors {
-  /** 提案ページへ遷移するための「提案する」導線(詳細ページから) */
+  /** 詳細ページから提案フォームへ遷移する「提案する」導線 */
   readonly proposeLink: readonly string[];
   /** 提案文の入力欄 */
   readonly proposalTextarea: readonly string[];
-  /** 希望金額の入力欄 */
+  /** 秘密保持契約(NDA)同意チェックボックス。案件により出ないこともある */
+  readonly ndaCheckbox: readonly string[];
+  /** 計画の契約金額(税抜)入力欄 */
   readonly amountInput: readonly string[];
-  /** 納期(日数)の入力欄 */
-  readonly deliveryInput: readonly string[];
-  /** 送信(提案する)ボタン */
+  /** 計画の完了予定日(日付)入力欄 */
+  readonly completionDateInput: readonly string[];
+  /** 送信(同意して提案する)ボタン */
   readonly submitButton: readonly string[];
-  /** 送信完了の判定に使う要素・URLパターン */
+  /** 送信完了の判定に使う要素 */
   readonly successIndicator: readonly string[];
 }
 
+/**
+ * 2026-06 にログイン状態の実フォーム(/work/propose_start/<id>)で確認した構造に基づく。
+ * 詳細は docs/propose-form.md。計画フィールドはname属性が無いため、
+ * 構造ベース(計画ブロック内の特定input)で狙う。
+ */
 export const LANCERS_SELECTORS: SubmitSelectors = {
   proposeLink: [
-    'a:has-text("案件に提案したい")',
     'a:has-text("提案する")',
-    'a[href*="?purpose=lancer"]',
+    'button:has-text("提案する")',
+    'a:has-text("案件に提案したい")',
   ],
   proposalTextarea: [
-    'textarea[name*="proposal"]',
-    'textarea[name*="message"]',
-    'textarea[name*="comment"]',
-    'form textarea',
+    '#ProposalDescription',
+    'textarea[name="data[Proposal][description]"]',
+  ],
+  ndaCheckbox: [
+    // 「秘密保持契約の内容を確認した上で同意します」のチェックボックス
+    'input[type="checkbox"][name*="agree"]',
+    'input[type="checkbox"][name*="nda"]',
+    'input[type="checkbox"][name*="Nda"]',
   ],
   amountInput: [
-    'input[name*="amount"]',
-    'input[name*="price"]',
-    'input[name*="budget"]',
+    // 計画の契約金額。ProposalOption[N]はnameを持つので、name無しのnumberを狙う
+    'input[type="number"]:not([name])',
   ],
-  deliveryInput: [
-    'input[name*="period"]',
-    'input[name*="delivery"]',
-    'input[name*="term"]',
-    'input[name*="days"]',
+  completionDateInput: [
+    'input[name*="delivery_date"]',
+    'input[name*="deadline"]',
+    'input[type="date"]',
   ],
   submitButton: [
-    'button:has-text("提案する")',
-    'button:has-text("この内容で提案")',
-    'input[type="submit"][value*="提案"]',
-    'button[type="submit"]',
+    '#form_end',
+    'input[name="send"]',
+    'input[type="submit"][value*="同意して提案する"]',
   ],
   successIndicator: [
     'text=提案を送信しました',
     'text=提案が完了',
-    'text=応募が完了',
+    'text=ご提案ありがとうございます',
   ],
 };
 

@@ -92,22 +92,47 @@ export class LancersSubmitter {
     }
   }
 
+  /**
+   * 詳細ページから提案フォーム(/work/propose_start/<id>)へ遷移する。
+   * 詳細ページの「提案する」を押すとフォームページへ移動する。
+   */
   private async openProposalForm(page: Page, jobUrl: string): Promise<void> {
-    const proposeUrl = jobUrl.includes('?') ? `${jobUrl}&purpose=lancer` : `${jobUrl}?purpose=lancer`;
-    await page.goto(proposeUrl, { waitUntil: 'domcontentloaded' });
+    await page.goto(jobUrl, { waitUntil: 'domcontentloaded' });
     await page.waitForTimeout(1500);
+
+    const proposeLink = await findFirst(page, LANCERS_SELECTORS.proposeLink, 4000);
+    if (!proposeLink) {
+      throw new Error('「提案する」ボタンが見つかりません(募集終了の可能性)');
+    }
+    await proposeLink.click();
+    // フォームページ(提案文欄)の出現を待つ
+    const textarea = await findFirst(page, LANCERS_SELECTORS.proposalTextarea, 8000);
+    if (!textarea) {
+      throw new Error('提案フォームの読み込みに失敗しました');
+    }
   }
 
   private async fillForm(page: Page, proposalText: string, bid: BidValues): Promise<void> {
+    // NDA同意チェック(ある案件のみ)
+    const nda = await findFirst(page, LANCERS_SELECTORS.ndaCheckbox, 1500);
+    if (nda) await nda.check().catch(() => undefined);
+
     const textarea = await findFirst(page, LANCERS_SELECTORS.proposalTextarea);
     if (!textarea) throw new Error('提案文の入力欄が見つかりませんでした');
     await textarea.fill(proposalText);
 
+    // 計画の契約金額(税抜)。フォーム既定値があれば上書きする
     const amount = await findFirst(page, LANCERS_SELECTORS.amountInput, 2000);
-    if (amount) await amount.fill(String(bid.amountYen));
+    if (amount) {
+      await amount.fill('');
+      await amount.fill(String(bid.amountYen));
+    }
 
-    const delivery = await findFirst(page, LANCERS_SELECTORS.deliveryInput, 2000);
-    if (delivery) await delivery.fill(String(bid.deliveryDays));
+    // 完了予定日(必須・日付)。今日 + deliveryDays をYYYY-MM-DDで入れる
+    const dateInput = await findFirst(page, LANCERS_SELECTORS.completionDateInput, 2000);
+    if (dateInput) {
+      await dateInput.fill(addDaysIso(bid.deliveryDays));
+    }
   }
 
   private async detectSuccess(page: Page): Promise<boolean> {
@@ -118,4 +143,14 @@ export class LancersSubmitter {
     // /mypage や /proposals は通常画面でも出るため使わない(誤検知防止)。
     return /\/(complete|thanks|thanksgiving|done)/i.test(page.url());
   }
+}
+
+/** 今日からN日後をローカル基準の YYYY-MM-DD で返す。 */
+function addDaysIso(days: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 }
