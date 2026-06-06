@@ -18,6 +18,7 @@
     "notion:migrate": "tsx scripts/notion-migrate.ts",
     "lancers:login": "tsx scripts/lancers-login.ts",
     "lancers:calibrate": "tsx scripts/lancers-calibrate.ts",
+    "lancers:testfill": "tsx scripts/test-fill.ts",
     "e2e:dummy": "tsx scripts/inject-dummy.ts"
   },
   "dependencies": {

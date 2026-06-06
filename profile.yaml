@@ -81,7 +81,7 @@ ngKeywords:
   - ネットワークビジネス
 
 conditions:
-  minBudgetYen: 50000
+  minBudgetYen: 1000 # 検証中は小額案件も通す(本番は50000等に戻す)
   weeklyHours: 週20時間
   responseSla: ご連絡には24時間以内に返信します
   firstDraftDays: 着手から5営業日以内に初回成果物を共有します
@@ -89,6 +89,6 @@ conditions:
 # 自動送信時の希望金額・納期の決め方(SUBMIT_MODE=auto)
 bidding:
   budgetRatio: 0.9 # 予算上限の90%を提示
-  fallbackAmountYen: 50000 # 予算不明時の提示額
+  fallbackAmountYen: 5000 # 予算不明時の提示額
   deliveryDays: 30 # 提示する納期(日数)
-  minAmountYen: 30000 # 希望金額の下限ガード
+  minAmountYen: 1000 # 希望金額の下限ガード(検証中は小額に。本番は30000等)
