@@ -248,6 +248,10 @@ export function createApprovalHandlers(deps: PipelineDeps): ApprovalHandlers {
     getJob: async (jobId) => getJob(deps.db, jobId),
 
     onApprove: async (jobId): Promise<ApproveOutcome | null> => {
+      // 承認待ちの案件のみ受け付ける(連打・古いボタンの再押下で二重処理しない)
+      const current = getJob(deps.db, jobId);
+      if (!current || current.status !== 'pending_approval') return null;
+
       // 日次レート制限: 当日の応募数が上限に達していたら承認を保留する
       if (isRateLimited(deps)) {
         logEvent(deps.db, jobId, 'approve:rate_limited');

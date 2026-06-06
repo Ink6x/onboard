@@ -65,17 +65,22 @@ export function createApprovalBot(
     await next();
   });
 
+  // すべてのコールバックは Telegram の制限(約15秒)内に即応答する必要がある。
+  // ブラウザ操作など重い処理の前に answerCallbackQuery を返さないと
+  // "query is too old" で失敗するため、ヘルパーで最初に必ず応答する。
+  const ack = (ctx: { answerCallbackQuery: (opts?: { text?: string }) => Promise<unknown> }, text?: string) =>
+    ctx.answerCallbackQuery(text ? { text } : undefined).catch(() => undefined);
+
   bot.callbackQuery(/^approve:(\d+)$/, async (ctx) => {
+    await ack(ctx, '承認を受け付けました');
     const jobId = Number(ctx.match[1]);
+    const progress = await ctx.reply('⏳ 処理中です…(自動送信モードはフォーム入力に30秒ほどかかります)');
+
     const outcome = await handlers.onApprove(jobId);
     if (!outcome) {
-      await ctx.answerCallbackQuery({
-        text: '承認できませんでした(処理済み・状態変更済みの可能性)',
-        show_alert: true,
-      });
+      await ctx.reply('承認できませんでした(処理済み・状態変更済みの可能性)。');
       return;
     }
-    await ctx.answerCallbackQuery({ text: '承認しました' });
 
     if (outcome.kind === 'manual') {
       const keyboard = new InlineKeyboard().text('🚀 送信済みにする', `submitted:${outcome.job.id}`);
@@ -96,17 +101,19 @@ export function createApprovalBot(
     } else {
       await ctx.reply(outcome.message, { parse_mode: 'HTML' });
     }
+    // 進捗メッセージを掃除(失敗しても無視)
+    await ctx.api.deleteMessage(progress.chat.id, progress.message_id).catch(() => undefined);
   });
 
   bot.callbackQuery(/^confirmSubmit:(\d+)$/, async (ctx) => {
+    await ack(ctx, '送信処理を開始しました');
     const jobId = Number(ctx.match[1]);
-    await ctx.answerCallbackQuery({ text: '送信中…' });
+    const progress = await ctx.reply('🚀 送信処理中です…(数十秒お待ちください)');
+
     const outcome = await handlers.onConfirmSubmit(jobId);
     if (!outcome) {
       await ctx.reply('送信できませんでした(状態が変わっている可能性)。');
-      return;
-    }
-    if (outcome.kind === 'submitted') {
+    } else if (outcome.kind === 'submitted') {
       await ctx.replyWithPhoto(new InputFile(outcome.screenshotPath), {
         caption: buildSubmittedCard(outcome.job),
         parse_mode: 'HTML',
@@ -118,37 +125,39 @@ export function createApprovalBot(
     } else {
       await ctx.reply(`❌ 送信に失敗しました: ${outcome.message}`);
     }
+    await ctx.api.deleteMessage(progress.chat.id, progress.message_id).catch(() => undefined);
   });
 
   bot.callbackQuery(/^abortSubmit:(\d+)$/, async (ctx) => {
+    await ack(ctx, '中止しました');
     const jobId = Number(ctx.match[1]);
     const job = await handlers.onAbortSubmit(jobId);
     if (!job) {
-      await ctx.answerCallbackQuery({ text: 'すでに処理済みです', show_alert: true });
+      await ctx.reply('すでに処理済みです。');
       return;
     }
-    await ctx.answerCallbackQuery({ text: '中止しました' });
     await ctx.reply('✋ 送信を中止しました(スキップ扱い)。手動で応募する場合は案件URLからどうぞ。', {
       parse_mode: 'HTML',
     });
   });
 
   bot.callbackQuery(/^skip:(\d+)$/, async (ctx) => {
+    await ack(ctx, 'スキップしました');
     const jobId = Number(ctx.match[1]);
     const job = await handlers.onSkip(jobId);
     if (!job) {
-      await ctx.answerCallbackQuery({ text: 'スキップできませんでした(処理済みの可能性)' });
+      await ctx.reply('スキップできませんでした(処理済みの可能性)。');
       return;
     }
-    await ctx.answerCallbackQuery({ text: 'スキップしました' });
     await ctx.reply(buildSkippedCard(job), { parse_mode: 'HTML' });
   });
 
   bot.callbackQuery(/^edit:(\d+)$/, async (ctx) => {
+    await ack(ctx);
     const jobId = Number(ctx.match[1]);
     const job = await handlers.getJob(jobId);
     if (!job) {
-      await ctx.answerCallbackQuery({ text: '案件が見つかりません' });
+      await ctx.reply('案件が見つかりません。');
       return;
     }
     // 編集セッションの衝突検出: 別案件の編集待ち中なら前のセッションを破棄して知らせる
@@ -156,18 +165,17 @@ export function createApprovalBot(
       await ctx.reply(`⚠️ 案件 #${state.awaitingEditJobId} の編集待ちをキャンセルしました。`);
     }
     state.awaitingEditJobId = jobId;
-    await ctx.answerCallbackQuery();
     await ctx.reply(buildEditPromptCard(job), { parse_mode: 'HTML' });
   });
 
   bot.callbackQuery(/^submitted:(\d+)$/, async (ctx) => {
+    await ack(ctx, '記録しました');
     const jobId = Number(ctx.match[1]);
     const job = await handlers.onMarkSubmitted(jobId);
     if (!job) {
-      await ctx.answerCallbackQuery({ text: '記録できませんでした(処理済みの可能性)' });
+      await ctx.reply('記録できませんでした(処理済みの可能性)。');
       return;
     }
-    await ctx.answerCallbackQuery({ text: '記録しました' });
     await ctx.reply(buildSubmittedCard(job), { parse_mode: 'HTML' });
   });
 
@@ -189,6 +197,15 @@ export function createApprovalBot(
       return;
     }
     await sendCard(bot, chatId, result.job, result.proposal);
+  });
+
+  // ハンドラ内で投げられた例外でプロセスを落とさない(grammyのデフォルトは再throw)。
+  bot.catch((err) => {
+    console.error('[telegram] handler error:', err.error);
+    // ユーザーにも知らせる(失敗しても無視)
+    void bot.api
+      .sendMessage(chatId, '⚠️ 内部エラーが発生しました。ログを確認してください。')
+      .catch(() => undefined);
   });
 
   async function sendCard(botInstance: Bot, chat: string, job: Job, proposal: Proposal): Promise<number> {
