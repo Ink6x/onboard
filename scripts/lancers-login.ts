@@ -28,7 +28,7 @@ async function main(): Promise<void> {
   console.log('⚠️ 「Googleでログイン」は使わないでください(自動化ブラウザはGoogleに拒否されます)。');
   console.log('   → 画面の「メールアドレス」「パスワード」欄から直接ログインしてください。');
   console.log('   Googleアカウントで登録していてパスワード未設定の場合は、');
-  console.log('   先に https://www.lancers.jp/user/passwordReset でパスワードを設定してください。');
+  console.log('   先に https://www.lancers.jp/user/reminder でパスワードを設定してください。');
   console.log('\n2FAがあれば完了まで進め、ログインが終わったらこのターミナルで Enter を押してください。');
 
   const rl = createInterface({ input: process.stdin, output: process.stdout });
