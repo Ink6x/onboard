@@ -37,7 +37,7 @@ function makeDeps(submitterRun: (stage: string) => SubmitResult) {
     config,
     profile,
     scorer: { score: () => ({ score: 80, reason: '', matchedWorks: [] }) },
-    generator: { generate: async () => 'x'.repeat(350) },
+    generator: { generate: async () => ({ content: 'x'.repeat(350), analysis: null }) },
     notion: { syncJob: async () => undefined },
     submitter,
     sendApprovalCard: async () => 1,

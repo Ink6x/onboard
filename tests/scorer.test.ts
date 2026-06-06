@@ -7,6 +7,8 @@ const profile: Profile = {
   displayName: 'Test',
   headline: 'AI開発者',
   intro: 'テスト用',
+  careerSummary: '',
+  strengths: [],
   works: [
     {
       name: 'Coaching AI Workflow',

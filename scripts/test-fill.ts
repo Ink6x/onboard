@@ -55,7 +55,7 @@ async function main(): Promise<void> {
   const score = new KeywordScorer().score(job, profile);
   const bid = computeBidValues(job, profile);
   console.log(`2. 提案文生成中(スコア${score.score})…`);
-  const proposal = await new ClaudeProposalGenerator(config.ANTHROPIC_API_KEY).generate(job, profile, score);
+  const { content: proposal } = await new ClaudeProposalGenerator(config.ANTHROPIC_API_KEY).generate(job, profile, score);
   console.log(`   提案文 ${proposal.length}字 / 希望金額 ${bid.amountYen}円(${bid.rationale})/ 納期 ${bid.deliveryDays}日`);
 
   // 本番と同じ送信エンジン。fill ステージは入力+スクショまでで、送信ボタンは押さない。

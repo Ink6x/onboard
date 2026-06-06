@@ -15,9 +15,10 @@ export function buildApprovalCard(job: Job, proposal: Proposal): string {
   const displayContent = truncated
     ? `${proposal.content.slice(0, MAX_PROPOSAL_DISPLAY)}\n…(表示上限のため省略。全文はNotionに保存済み)`
     : proposal.content;
+  // v2では文字数上限なし(案件の重さに応じて分量を適応)。生成暴走の検知として2000字超のみ注意喚起する
   const warning =
-    proposal.content.length > 600
-      ? `\n⚠️ <b>自己検査NG: 提案文が${proposal.content.length}字あります(推奨300〜500字)。編集で修正してください。</b>`
+    proposal.content.length > 2000
+      ? `\n⚠️ <b>提案文が${proposal.content.length}字あります。案件の重さに釣り合っているか確認してください。</b>`
       : '';
   const competitionNote =
     job.proposalCount !== null ? ` / 既存提案 ${job.proposalCount}件以上` : '';

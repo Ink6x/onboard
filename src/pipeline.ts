@@ -134,9 +134,13 @@ async function processJob(deps: PipelineDeps, job: Job): Promise<void> {
     return;
   }
 
-  const content = await deps.generator.generate(scored, deps.profile, score);
-  const proposal = insertProposal(deps.db, fresh.id, content, null);
+  const generated = await deps.generator.generate(scored, deps.profile, score);
+  const proposal = insertProposal(deps.db, fresh.id, generated.content, null);
   logEvent(deps.db, fresh.id, 'proposal:generated', { version: proposal.version });
+  // Stage 1の案件分析を監査ログに残す(承認判断・後からの振り返り材料)
+  if (generated.analysis) {
+    logEvent(deps.db, fresh.id, 'proposal:analysis', { ...generated.analysis });
+  }
 
   const pending = await transition(deps, fresh.id, 'pending_approval');
   if (pending) {
@@ -337,14 +341,14 @@ export function createApprovalHandlers(deps: PipelineDeps): ApprovalHandlers {
 
       const previous = getLatestProposal(deps.db, jobId);
       const score = deps.scorer.score(job, deps.profile);
-      const content = await deps.generator.generate(
+      const generated = await deps.generator.generate(
         job,
         deps.profile,
         score,
         instruction,
         previous?.content,
       );
-      const proposal = insertProposal(deps.db, jobId, content, instruction);
+      const proposal = insertProposal(deps.db, jobId, generated.content, instruction);
       logEvent(deps.db, jobId, 'proposal:regenerated', {
         version: proposal.version,
         instruction,

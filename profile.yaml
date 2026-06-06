@@ -1,6 +1,12 @@
-# 提案文生成の唯一の正(source of truth)
-# portfolio/README.md と各ケーススタディから生成した最小版(v1)。
-# 側の完成後、訴求テンプレ・カテゴリ別の磨き込みを行う。
+# 提案文生成の設定ファイル
+# 正(source of truth)は portfolio/knowledge-base/ に移譲(2026-06-06)。
+# プロフィール・実績・数値を更新する際は knowledge-base/ の正規値と一致させること。
+#   - intro/careerSummary/strengths → knowledge-base/texts/self-pr.md, profile/career.md
+#   - works → knowledge-base/works/, profile/career.md(匿名化して転記)
+#   - 成果の元数値 → knowledge-base/texts/outcomes.md(提案文用には経験ベースに言い換え済み)
+# 公開可否は knowledge-base/DISCLOSURE.md に従う:
+#   社名・実名・学歴・CTO役職は提案文に入れない。年数・領域・役割のみの匿名化叙述はOK。
+# このファイル固有の営業条件(categories/conditions/bidding)はここが正のまま。
 
 displayName: Ink6x
 headline: AIワークフロー自動化 / フルスタックWebアプリ開発(Next.js・TypeScript)
@@ -10,30 +16,99 @@ intro: >-
   専門にしています。AIに生成・要約を任せつつ、承認フロー・監査ログ・実行制御で
   守る設計を得意とし、クライアント業務の工数を定量的に削減してきました。
 
+# 匿名化した経験叙述(社名なし・年数と領域のみ)。初見のクライアントへの信頼の土台。
+careerSummary: >-
+  2022年から約3年半、AI開発とWebアプリ開発の実務に携わってきました。
+  機械学習PoC、LLM/RAGシステム構築、新規Webサービスの立ち上げ、
+  社員4名の事業者の社内DXから、エンタープライズ向けのAI業務自動化基盤まで、
+  規模も業種も異なる7つの現場を経験しています。
+  小さな会社の「人手が足りない」も、大きな組織の「ミスが許されない」も、
+  どちらも現場で向き合ってきたので、要件定義から設計・実装・本番運用・保守まで
+  一人で完結できます。
+
+# スタンス・設計思想(提案文で人柄・信頼を伝える素材)
+strengths:
+  - LLMに任せる領域と、人間の承認・監査・実行制御で守る領域を分けて設計する
+  - 要件整理から設計・実装・本番運用まで一人で完結できる
+  - 動くプロトタイプを2〜3週間で提供し、実運用に耐える品質まで仕上げる
+  - ハルシネーション排除・コスト最適化・本番稼働まで含めて設計する
+  - 納品して終わりではなく、操作研修や保守まで含めて伴走する
+
 works:
-  - name: Coaching AI Workflow
-    summary: コーチング事業向けのAI業務自動化。Discord日次振り返り、週次・月次レポート自動生成、承認付きLINE配信、RAG検索、管理ダッシュボード。
+  - name: コーチング事業者向けAI業務自動化
+    summary: コーチング事業のAI実行基盤。Discord日次振り返り収集、週次・月次レポート自動生成、コーチ承認付きLINE配信、過去指導記録のRAG検索、管理ダッシュボード。
+    experienceNote: >-
+      コーチの方が毎週2時間半かけていたレポート作成に追われ、本来やりたい指導に
+      時間を割けない状態でした。業務の流れを一緒に紙に書き出すところから始め、
+      AIが下書きを作り人間が承認してから配信する仕組みに作り替えた経験です。
+      導入後はレポート作成がほぼゼロになり、1ヶ月で受け持てる生徒数が50名から80名に増えました。
     outcomes:
-      - 週次レポート作成を週約150分から実質0分に削減
-      - 月次工程の入力tokenを89.8%削減
+      - 毎週2時間半かかっていたレポート作成業務を実質ゼロに
+      - 導入1ヶ月で受け入れ可能な生徒数が50名から80名に増加
     stack: [Discord Bot, Next.js, TypeScript, Supabase, LINE, RAG, Docker, LLM]
     url: https://github.com/Ink6x/coaching-ai-workflow
 
-  - name: AI Workflow Automation
-    summary: 採用オペレーション向けのAI自動化基盤。AIは計画生成と要約、実行はPolicy Gate・Job Queue・Sandbox・監査ログで制御。
+  - name: エンタープライズ向けAI業務自動化基盤
+    summary: 対外オペレーション業務のAI自動化基盤。AIは計画生成と要約に限定し、実行はPolicy Gate・Job Queue・Sandbox・監査ログで制御するHuman-in-the-loop設計。
+    experienceNote: >-
+      「AIに任せたいが、間違った操作が外部に出るのは絶対に困る」という企業の不安に対し、
+      AIを実行主体にせず、人間の承認と機械的な検証を通ってから動く設計を提案・実装した経験です。
+      担当者1人あたり月15〜20時間かかっていたルーティン作業を削減しました。
     outcomes:
-      - 社員1人あたり最大月20時間、チーム全体で約60時間/月の工数削減
-    stack: [Slack, Playwright, Docker, AWS, Notion, LLM, TypeScript]
+      - 担当者1人あたり月15〜20時間、チーム全体で月60時間規模のルーティン作業を削減
+    stack: [Slack, Playwright, Docker, AWS, Notion, LLM, TypeScript, PostgreSQL]
     url: https://github.com/Ink6x/ai-workflow-automation
 
-  - name: Portfolio Site
-    summary: アニメーション・3D表現を含む公開ポートフォリオサイト。
-    outcomes: []
-    stack: [Next.js, React, TypeScript, Tailwind CSS, Framer Motion, Three.js]
-    url: https://github.com/Ink6x/Portfolio-site
+  - name: 自動車販売・整備事業者の社内DX
+    summary: 社員4名の事業者向けに、顧客進捗・整備スケジュール・台車運用を一元管理するWebアプリ。紙書類のOCR取り込み(AI)、書類フォーマット自動生成、スケジュールレコメンド。
+    experienceNote: >-
+      お客様の進捗も車のスケジュールも経営者の頭の中だけにある状態で、
+      経営者へのヒアリングから要件を整理し、紙の書類をスマホで撮れば取り込める
+      仕組みまで作りました。ITに慣れていない現場でも使ってもらえるよう操作研修まで行い、
+      導入後は受注が月7件増えました。納品後も保守と機能追加で継続的にお付き合いしています。
+    outcomes:
+      - 導入後、受注件数が月7件増加
+      - 納品後も保守・機能追加を継続中(現在も取引継続)
+    stack: [Next.js, TypeScript, FastAPI, Python, PostgreSQL, Supabase, OCR, LLM]
 
-  - name: History Soul Matcher
-    summary: 顔写真から歴史上の人物との類似度を出すWebアプリ。
+  - name: 求人スカウト業務の自動化プラットフォーム
+    summary: 複数の求人媒体にまたがるスカウト送信・応募者管理を自動化するクラウド基盤。新規3媒体の連携をデータモデルからAPI・管理画面まで一気通貫で実装。
+    experienceNote: >-
+      媒体ごとに仕様もデータ構造もばらばらで、対応媒体を増やすたびに人手作業が
+      積み上がる構造を、共通データモデルへの正規化と重複送信防止の仕組みで解消した経験です。
+      検証環境とリリース自動化もゼロから整え、安心してリリースできる体制を作りました。
+    outcomes:
+      - 新規3媒体の連携をデータモデル〜API〜管理画面まで一気通貫で実装
+      - 検証環境とCI/CDをゼロから構築しリリース事故を防止
+    stack: [Python, Django, GCP, Cloud Run, Terraform, PostgreSQL, Docker, GitHub Actions]
+    url: https://ink6x.vercel.app/work/scout-automation-platform
+
+  - name: エンタープライズ向け社内文書RAG・業務効率化AI
+    summary: 社内文書を対象としたRAG(検索拡張生成)システム。ドキュメント取り込み〜チャンク化〜埋め込み〜ベクトル検索のパイプライン構築。
+    experienceNote: >-
+      「社内に散らばった文書をAIに答えさせたい」という要望に対し、
+      文書の取り込みから検索精度のチューニングまでを担当した経験です。
+      なんでもLLMに任せるのではなく、古典的な機械学習との使い分けまで含めて
+      技術選定から議論しました。
+    outcomes:
+      - 社内文書RAGパイプラインを取り込み〜検索まで一貫構築
+    stack: [Python, LangChain, LangGraph, OpenAI, RAG, Vector DB, PostgreSQL]
+
+  - name: 新規マッチングサービスの立ち上げ(0→1)
+    summary: 新規マッチングサービスのAI推論部分を主担当。LLM embeddingベースの類似度マッチング、プロフィール画像・自由記述の解析、推論APIの設計実装。
+    experienceNote: >-
+      まだ何も決まっていない新規サービスの立ち上げ期に、マッチングの核となる
+      AIロジックを設計から任された経験です。クローズドβでユーザーの反応を見ながら
+      仮説検証を繰り返す、スピード感のある開発を行いました。
+    outcomes:
+      - マッチングロジックの設計〜推論API実装を主担当として完遂
+    stack: [Python, FastAPI, NestJS, React, PostgreSQL, Embedding, AWS]
+
+  - name: History Soul Matcher(公開デモ)
+    summary: 顔写真から歴史上の人物との類似度を出すWebアプリ。画像はサーバーに保存しないプライバシー設計。
+    experienceNote: >-
+      技術デモとして公開しているWebアプリです。AIの出力をそのまま使わず、
+      決定論的な判定ロジックと組み合わせて結果のブレを抑える設計にしています。
     outcomes: []
     stack: [Next.js, React, TypeScript, Anthropic SDK, Zod]
     url: https://github.com/Ink6x/history-soul-matcher
@@ -52,6 +127,7 @@ skills:
   - TypeScript
   - Python
   - FastAPI
+  - Django
   - Supabase
   - PostgreSQL
   - LINE
@@ -61,6 +137,9 @@ skills:
   - Playwright
   - n8n
   - GAS
+  - OCR
+  - GCP
+  - AWS
 
 categories:
   - AI開発

@@ -5,7 +5,8 @@ import { z } from 'zod';
 const workSchema = z.object({
   name: z.string(),
   summary: z.string(),
-  outcomes: z.array(z.string()).default([]), // 数値で語れる成果
+  outcomes: z.array(z.string()).default([]), // 成果(初見の相手にも情景が浮かぶ経験ベースの表現を正とする)
+  experienceNote: z.string().optional(), // この案件で「何を経験したか」の語り(提案文の人間味素材)
   stack: z.array(z.string()).default([]),
   url: z.string().optional(),
 });
@@ -14,6 +15,8 @@ const profileSchema = z.object({
   displayName: z.string(),
   headline: z.string(),
   intro: z.string(), // 自己紹介(提案文の冒頭素材)
+  careerSummary: z.string().default(''), // 匿名化した経験叙述(年数・領域・役割のみ。社名・実名・学歴は入れない)
+  strengths: z.array(z.string()).default([]), // スタンス・設計思想の要素文(knowledge-base/texts/self-pr.md と同期)
   works: z.array(workSchema),
   skills: z.array(z.string()),
   categories: z.array(z.string()), // 対応可能な案件カテゴリ(スコアリング用キーワード)
