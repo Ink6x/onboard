@@ -1,4 +1,4 @@
-import { Bot, InlineKeyboard } from 'grammy';
+import { Bot, InlineKeyboard, InputFile } from 'grammy';
 import type { Job, Proposal } from '../types.js';
 import {
   buildApprovalCard,
@@ -8,15 +8,31 @@ import {
   buildSubmittedCard,
 } from './cards.js';
 
+/** 承認操作の結果。送信モードに応じて次にbotが何を表示するかを伝える。 */
+export type ApproveOutcome =
+  | { readonly kind: 'manual'; readonly job: Job } // 手動送信モード: URLカードを出す
+  | { readonly kind: 'filled'; readonly job: Job; readonly screenshotPath: string; readonly caption: string } // 自動入力完了: スクショ+最終確認
+  | { readonly kind: 'blocked'; readonly message: string }; // 上限/時間外/要ログイン/エラー
+
+/** 最終送信の結果。 */
+export type SubmitOutcome =
+  | { readonly kind: 'submitted'; readonly job: Job; readonly screenshotPath: string }
+  | { readonly kind: 'error'; readonly message: string; readonly screenshotPath: string | null };
+
 /** パイプライン側が実装するコールバック群(botはUIの配線のみを担当)。 */
 export interface ApprovalHandlers {
   getJob(jobId: number): Promise<Job | null>;
-  onApprove(jobId: number): Promise<Job | null>;
+  onApprove(jobId: number): Promise<ApproveOutcome | null>;
   onSkip(jobId: number): Promise<Job | null>;
   /** 編集指示を受けて再生成し、新しい提案文を返す */
   onEditInstruction(jobId: number, instruction: string): Promise<{ job: Job; proposal: Proposal } | null>;
   /** 提案文を直接差し替える */
   onReplaceProposal(jobId: number, content: string): Promise<{ job: Job; proposal: Proposal } | null>;
+  /** 2段階確認の最終送信(自動送信モード) */
+  onConfirmSubmit(jobId: number): Promise<SubmitOutcome | null>;
+  /** 入力済みの送信を中止する(自動送信モード) */
+  onAbortSubmit(jobId: number): Promise<Job | null>;
+  /** 手動送信モードで「送信済み」として記録する */
   onMarkSubmitted(jobId: number): Promise<Job | null>;
 }
 
@@ -51,17 +67,70 @@ export function createApprovalBot(
 
   bot.callbackQuery(/^approve:(\d+)$/, async (ctx) => {
     const jobId = Number(ctx.match[1]);
-    const job = await handlers.onApprove(jobId);
-    if (!job) {
+    const outcome = await handlers.onApprove(jobId);
+    if (!outcome) {
       await ctx.answerCallbackQuery({
-        text: '承認できませんでした(処理済み・状態変更済み・または本日の上限到達)',
+        text: '承認できませんでした(処理済み・状態変更済みの可能性)',
         show_alert: true,
       });
       return;
     }
     await ctx.answerCallbackQuery({ text: '承認しました' });
-    const keyboard = new InlineKeyboard().text('🚀 送信済みにする', `submitted:${job.id}`);
-    await ctx.reply(buildApprovedManualCard(job), { parse_mode: 'HTML', reply_markup: keyboard });
+
+    if (outcome.kind === 'manual') {
+      const keyboard = new InlineKeyboard().text('🚀 送信済みにする', `submitted:${outcome.job.id}`);
+      await ctx.reply(buildApprovedManualCard(outcome.job), {
+        parse_mode: 'HTML',
+        reply_markup: keyboard,
+      });
+    } else if (outcome.kind === 'filled') {
+      // 自動入力完了 → スクショ+最終確認(不可逆操作の直前に人間)
+      const keyboard = new InlineKeyboard()
+        .text('🚀 本当に送信', `confirmSubmit:${outcome.job.id}`)
+        .text('✋ 中止', `abortSubmit:${outcome.job.id}`);
+      await ctx.replyWithPhoto(new InputFile(outcome.screenshotPath), {
+        caption: outcome.caption,
+        parse_mode: 'HTML',
+        reply_markup: keyboard,
+      });
+    } else {
+      await ctx.reply(outcome.message, { parse_mode: 'HTML' });
+    }
+  });
+
+  bot.callbackQuery(/^confirmSubmit:(\d+)$/, async (ctx) => {
+    const jobId = Number(ctx.match[1]);
+    await ctx.answerCallbackQuery({ text: '送信中…' });
+    const outcome = await handlers.onConfirmSubmit(jobId);
+    if (!outcome) {
+      await ctx.reply('送信できませんでした(状態が変わっている可能性)。');
+      return;
+    }
+    if (outcome.kind === 'submitted') {
+      await ctx.replyWithPhoto(new InputFile(outcome.screenshotPath), {
+        caption: buildSubmittedCard(outcome.job),
+        parse_mode: 'HTML',
+      });
+    } else if (outcome.screenshotPath) {
+      await ctx.replyWithPhoto(new InputFile(outcome.screenshotPath), {
+        caption: `❌ 送信に失敗しました: ${outcome.message}`,
+      });
+    } else {
+      await ctx.reply(`❌ 送信に失敗しました: ${outcome.message}`);
+    }
+  });
+
+  bot.callbackQuery(/^abortSubmit:(\d+)$/, async (ctx) => {
+    const jobId = Number(ctx.match[1]);
+    const job = await handlers.onAbortSubmit(jobId);
+    if (!job) {
+      await ctx.answerCallbackQuery({ text: 'すでに処理済みです', show_alert: true });
+      return;
+    }
+    await ctx.answerCallbackQuery({ text: '中止しました' });
+    await ctx.reply('✋ 送信を中止しました(スキップ扱い)。手動で応募する場合は案件URLからどうぞ。', {
+      parse_mode: 'HTML',
+    });
   });
 
   bot.callbackQuery(/^skip:(\d+)$/, async (ctx) => {

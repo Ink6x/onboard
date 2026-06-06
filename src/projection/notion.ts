@@ -10,6 +10,8 @@ export const STATUS_LABELS: Record<JobStatus, string> = {
   pending_approval: '承認待ち',
   editing: '編集中',
   approved: '承認済み',
+  submitting: '送信確認待ち',
+  submit_locked: '送信処理中',
   skipped_manual: 'スキップ(手動)',
   submitted: '応募済み',
   failed: '失敗',
@@ -64,11 +66,22 @@ function buildProperties(job: Job, proposal?: Proposal | null) {
     判定理由: { rich_text: textChunks(job.scoreReason ?? '') },
     提案文: { rich_text: textChunks(proposal?.content ?? '') },
     メモ: { rich_text: textChunks(proposal?.editInstruction ?? '') },
+    希望金額: { number: job.bidAmountYen },
+    提示納期: job.bidDeliveryDays ? { rich_text: textChunks(`${job.bidDeliveryDays}日`) } : { rich_text: [] },
+    送信結果: { rich_text: textChunks(submissionResultText(job)) },
+    スクショパス: { rich_text: textChunks(job.screenshotPath ?? '') },
     // 応募日時はDB側で確定したタイムスタンプを使う(再同期で上書きされない)
     ...(job.submittedAt
       ? { 応募日時: { date: { start: new Date(`${job.submittedAt}Z`).toISOString() } } }
       : {}),
   };
+}
+
+/** 送信の結果サマリ(成功/失敗理由)を組み立てる。 */
+function submissionResultText(job: Job): string {
+  if (job.status === 'submitted') return '✅ 送信成功';
+  if (job.submitError) return `❌ ${job.submitError}`;
+  return '';
 }
 
 /** Notionのrich_textは1要素2000字制限のため分割する。 */

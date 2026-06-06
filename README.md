@@ -45,11 +45,47 @@ npm test            # ユニットテスト
 ## 運用フロー
 
 1. 通知メールから新着案件を自動登録(URLで冪等)
-2. 適合スコア < `MIN_FIT_SCORE` は自動スキップ(Notionには記録)
+2. 案件詳細ページから依頼概要・提案数を取得 → 適合スコア < `MIN_FIT_SCORE` は自動スキップ(Notionには記録)
 3. 提案文を生成してTelegramへ承認カード送信
-4. ✅承認 → 手動送信モード(`SUBMIT_MODE=manual`)では案件URLが届くので貼り付けて応募 → 「🚀送信済みにする」で記録
-5. ✏️編集 → 修正指示を返信すると再生成して再確認(「差し替え:」で直接差し替えも可)
+4. ✏️編集 → 修正指示を返信すると再生成して再確認(「差し替え:」で直接差し替えも可)
+5. ✅承認 → 送信モードにより分岐(下記)
 6. 受注・返信などのクライアント反応はNotion上で手動更新
+
+### 送信モード
+
+`.env` の `SUBMIT_MODE` で切り替え:
+
+**`manual`(既定・安全)**
+承認すると案件URLが届くので、ブラウザで開いて最新提案文を貼り付けて応募 → 「🚀送信済みにする」で記録。
+
+**`auto`(Playwright自動送信・2段階確認)**
+承認すると Playwright がログイン済みセッションで提案フォームに自動入力(提案文・希望金額・納期)→ **入力済み画面のスクショをTelegramへ送信** → 「🚀 本当に送信」を押して初めて実送信。「✋ 中止」で取りやめ可。送信は不可逆なので、必ずスクショを確認してから送信ボタンを押すこと。
+
+#### auto モードのセットアップ
+
+```powershell
+# 1. 初回ログイン(ヘッド付きブラウザが開く。2FAまで完了させてEnter)
+npm run lancers:login
+
+# 2. 提案フォームのセレクタ確認(任意の案件URLで。送信はしない)
+npm run lancers:calibrate -- https://www.lancers.jp/work/detail/<id>
+#    → ❌が出たら src/submitter/selectors.ts を修正
+
+# 3. Notion DBに送信記録カラムを追加(既存DB利用時のみ・初回1回)
+npm run notion:migrate
+
+# 4. .env で SUBMIT_MODE=auto に変更して再起動
+npm run dev
+```
+
+送信の安全ガード(すべて `.env` で調整可):
+- 日次上限 `MAX_APPLICATIONS_PER_DAY`(既定3)
+- 営業時間内のみ `SUBMIT_HOURS_START`〜`SUBMIT_HOURS_END`(既定9〜22時)
+- 送信前ランダム遅延 `SUBMIT_DELAY_MIN_SEC`〜`MAX_SEC`
+- 希望金額は `profile.yaml` の `bidding`(既定: 予算上限×90%)
+- 全送信のスクショを `SCREENSHOT_DIR` に保存し、Notionの「送信結果」「スクショパス」に記録
+
+> ⚠️ 自動送信はLancers利用規約上のリスクがあります(33条)。2段階確認・日次上限・人間承認で緩和していますが、アカウント停止リスクはゼロではありません。
 
 ## 設計メモ
 

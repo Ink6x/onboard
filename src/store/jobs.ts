@@ -18,6 +18,10 @@ interface JobRow {
   telegram_message_id: number | null;
   submitted_at: string | null;
   proposal_count: number | null;
+  bid_amount_yen: number | null;
+  bid_delivery_days: number | null;
+  submit_error: string | null;
+  screenshot_path: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -40,6 +44,10 @@ function toJob(row: JobRow): Job {
     telegramMessageId: row.telegram_message_id,
     submittedAt: row.submitted_at,
     proposalCount: row.proposal_count,
+    bidAmountYen: row.bid_amount_yen,
+    bidDeliveryDays: row.bid_delivery_days,
+    submitError: row.submit_error,
+    screenshotPath: row.screenshot_path,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -123,6 +131,39 @@ export function updateJobDetail(
        updated_at = datetime('now')
      WHERE id = ?`,
   ).run(detail.description ?? null, detail.proposalCount ?? null, id);
+  return getJob(db, id);
+}
+
+/**
+ * 送信に関する記録(希望金額・納期・エラー・スクショ)を更新する。
+ * 金額・納期・スクショは COALESCE で「null渡し=据え置き」。
+ * submit_error のみ直接上書き(成功時に null を渡して明示的にクリアするため)。
+ */
+export function updateJobSubmission(
+  db: Database.Database,
+  id: number,
+  fields: {
+    bidAmountYen?: number | null;
+    bidDeliveryDays?: number | null;
+    submitError?: string | null;
+    screenshotPath?: string | null;
+  },
+): Job | null {
+  db.prepare(
+    `UPDATE jobs SET
+       bid_amount_yen = COALESCE(?, bid_amount_yen),
+       bid_delivery_days = COALESCE(?, bid_delivery_days),
+       submit_error = ?,
+       screenshot_path = COALESCE(?, screenshot_path),
+       updated_at = datetime('now')
+     WHERE id = ?`,
+  ).run(
+    fields.bidAmountYen ?? null,
+    fields.bidDeliveryDays ?? null,
+    fields.submitError ?? null,
+    fields.screenshotPath ?? null,
+    id,
+  );
   return getJob(db, id);
 }
 

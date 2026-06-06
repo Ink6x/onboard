@@ -8,4 +8,7 @@ data/
 credentials/
 screenshots/
 .playwright-profile/
+data/screenshots/
+data/detail-sample.html
+data/email-samples/
 tsconfig.tsbuildinfo

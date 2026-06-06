@@ -51,6 +51,7 @@ async function main(): Promise<void> {
     scorer: new KeywordScorer(),
     generator: new ClaudeProposalGenerator(config.ANTHROPIC_API_KEY),
     notion: createNotionProjection(config.NOTION_TOKEN, config.NOTION_DATABASE_ID, db),
+    submitter: null,
     sendApprovalCard: async (approvalJob, proposal) => {
       const keyboard = new InlineKeyboard()
         .text('✅ 承認', `approve:${approvalJob.id}`)

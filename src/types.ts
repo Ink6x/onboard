@@ -5,6 +5,8 @@ export const JOB_STATUSES = [
   'pending_approval', // Telegramで承認待ち
   'editing', // 編集指示を受けて再生成中
   'approved', // 承認済み(送信待ち)
+  'submitting', // フォーム自動入力済み・最終送信確認待ち(2段階確認)
+  'submit_locked', // 最終送信処理中(二重送信防止のロック)
   'skipped_manual', // Telegramで手動スキップ
   'submitted', // 応募送信済み
   'failed', // 送信失敗
@@ -29,6 +31,10 @@ export interface Job {
   readonly telegramMessageId: number | null;
   readonly submittedAt: string | null;
   readonly proposalCount: number | null;
+  readonly bidAmountYen: number | null; // 提示した希望金額
+  readonly bidDeliveryDays: number | null; // 提示した納期
+  readonly submitError: string | null; // 送信失敗時の理由
+  readonly screenshotPath: string | null; // 最新の証跡スクショ
   readonly createdAt: string;
   readonly updatedAt: string;
 }

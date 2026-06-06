@@ -24,6 +24,12 @@ const profile: Profile = {
     responseSla: '24時間以内',
     firstDraftDays: '5営業日',
   },
+  bidding: {
+    budgetRatio: 0.9,
+    fallbackAmountYen: 50000,
+    deliveryDays: 30,
+    minAmountYen: 30000,
+  },
 };
 
 function makeJob(title: string, description = '', budgetText: string | null = null): Job {
@@ -44,6 +50,10 @@ function makeJob(title: string, description = '', budgetText: string | null = nu
     telegramMessageId: null,
     submittedAt: null,
     proposalCount: null,
+    bidAmountYen: null,
+    bidDeliveryDays: null,
+    submitError: null,
+    screenshotPath: null,
     createdAt: '',
     updatedAt: '',
   };

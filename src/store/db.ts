@@ -20,6 +20,10 @@ CREATE TABLE IF NOT EXISTS jobs (
   telegram_message_id INTEGER,
   submitted_at TEXT,
   proposal_count INTEGER,
+  bid_amount_yen INTEGER,
+  bid_delivery_days INTEGER,
+  submit_error TEXT,
+  screenshot_path TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -61,6 +65,10 @@ export function openDb(path: string): Database.Database {
   // CREATE TABLE IF NOT EXISTS は既存テーブルに列を足さないため、後方互換マイグレーション
   ensureColumn(db, 'jobs', 'submitted_at', 'TEXT');
   ensureColumn(db, 'jobs', 'proposal_count', 'INTEGER');
+  ensureColumn(db, 'jobs', 'bid_amount_yen', 'INTEGER');
+  ensureColumn(db, 'jobs', 'bid_delivery_days', 'INTEGER');
+  ensureColumn(db, 'jobs', 'submit_error', 'TEXT');
+  ensureColumn(db, 'jobs', 'screenshot_path', 'TEXT');
   return db;
 }
 

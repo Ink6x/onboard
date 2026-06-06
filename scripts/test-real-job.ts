@@ -40,6 +40,10 @@ async function main(): Promise<void> {
     telegramMessageId: null,
     submittedAt: null,
     proposalCount: detail?.proposalCount ?? null,
+    bidAmountYen: null,
+    bidDeliveryDays: null,
+    submitError: null,
+    screenshotPath: null,
     createdAt: '',
     updatedAt: '',
   };

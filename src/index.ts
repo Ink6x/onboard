@@ -6,12 +6,27 @@ import { ClaudeProposalGenerator } from './generator/claudeGenerator.js';
 import { createNotionProjection } from './projection/notion.js';
 import { createApprovalBot } from './approval/bot.js';
 import { createGmailClient, pollGmail } from './collector/gmailPoller.js';
-import { createApprovalHandlers, processNewJobs, type PipelineDeps } from './pipeline.js';
+import { LancersSubmitter } from './submitter/submitter.js';
+import {
+  createApprovalHandlers,
+  processNewJobs,
+  recoverStuckJobs,
+  type PipelineDeps,
+} from './pipeline.js';
 
 async function main(): Promise<void> {
   const config = loadConfig();
   const db = openDb(config.DATABASE_PATH);
   const profile = loadProfile(config.PROFILE_PATH);
+
+  const submitter =
+    config.SUBMIT_MODE === 'auto'
+      ? new LancersSubmitter({
+          profileDir: config.PLAYWRIGHT_PROFILE_DIR,
+          headless: config.PLAYWRIGHT_HEADLESS,
+          screenshotDir: config.SCREENSHOT_DIR,
+        })
+      : null;
 
   const deps: PipelineDeps = {
     db,
@@ -20,6 +35,7 @@ async function main(): Promise<void> {
     scorer: new KeywordScorer(),
     generator: new ClaudeProposalGenerator(config.ANTHROPIC_API_KEY),
     notion: createNotionProjection(config.NOTION_TOKEN, config.NOTION_DATABASE_ID, db),
+    submitter,
     sendApprovalCard: async (job, proposal) => approvalBot.sendApprovalCard(job, proposal),
     notify: async (text) => approvalBot.notify(text),
   };
@@ -30,6 +46,9 @@ async function main(): Promise<void> {
     createApprovalHandlers(deps),
   );
   approvalBot.start();
+
+  // 送信途中でクラッシュした案件を復旧する(auto モードのみ意味を持つ)
+  await recoverStuckJobs(deps);
 
   const gmail = createGmailClient(config);
   if (!gmail) {

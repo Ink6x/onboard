@@ -24,6 +24,18 @@ const profileSchema = z.object({
     responseSla: z.string(), // 例「24時間以内に返信」
     firstDraftDays: z.string(), // 例「着手から4営業日以内に初稿」
   }),
+  bidding: z
+    .object({
+      // 予算上限に対する希望金額の割合(0.9 = 上限の90%)
+      budgetRatio: z.number().min(0).max(1).default(0.9),
+      // 予算不明時に提示する金額(円)
+      fallbackAmountYen: z.number().default(50000),
+      // 提示する納期(日数)
+      deliveryDays: z.number().int().positive().default(30),
+      // 希望金額の下限ガード(これを下回る案件は金額を割り込まない)
+      minAmountYen: z.number().default(30000),
+    })
+    .default({}),
 });
 
 export type PortfolioWork = z.infer<typeof workSchema>;

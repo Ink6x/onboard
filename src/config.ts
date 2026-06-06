@@ -16,6 +16,16 @@ const envSchema = z.object({
   MAX_APPLICATIONS_PER_DAY: z.coerce.number().int().positive().default(3),
   MIN_FIT_SCORE: z.coerce.number().int().min(0).max(100).default(60),
   SUBMIT_MODE: z.enum(['manual', 'auto']).default('manual'),
+  PLAYWRIGHT_PROFILE_DIR: z.string().default('./.playwright-profile'),
+  PLAYWRIGHT_HEADLESS: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((v) => v === 'true'),
+  SCREENSHOT_DIR: z.string().default('./data/screenshots'),
+  SUBMIT_HOURS_START: z.coerce.number().int().min(0).max(23).default(9),
+  SUBMIT_HOURS_END: z.coerce.number().int().min(1).max(24).default(22),
+  SUBMIT_DELAY_MIN_SEC: z.coerce.number().int().min(0).default(20),
+  SUBMIT_DELAY_MAX_SEC: z.coerce.number().int().min(0).default(90),
   DATABASE_PATH: z.string().default('./data/onboard.sqlite'),
   PROFILE_PATH: z.string().default('./profile.yaml'),
 });
