@@ -113,25 +113,28 @@ export class LancersSubmitter {
   }
 
   private async fillForm(page: Page, proposalText: string, bid: BidValues): Promise<void> {
-    // NDA同意チェック(ある案件のみ)
-    const nda = await findFirst(page, LANCERS_SELECTORS.ndaCheckbox, 1500);
-    if (nda) await nda.check().catch(() => undefined);
-
+    // 提案文(必須)
     const textarea = await findFirst(page, LANCERS_SELECTORS.proposalTextarea);
     if (!textarea) throw new Error('提案文の入力欄が見つかりませんでした');
     await textarea.fill(proposalText);
 
-    // 計画の契約金額(税抜)。フォーム既定値があれば上書きする
+    // 計画の契約金額(税抜)。既定値が入っているのでクリアしてから入れる
     const amount = await findFirst(page, LANCERS_SELECTORS.amountInput, 2000);
     if (amount) {
       await amount.fill('');
       await amount.fill(String(bid.amountYen));
     }
 
-    // 完了予定日(必須・日付)。今日 + deliveryDays をYYYY-MM-DDで入れる
+    // 完了予定日(必須・react-datepicker)。形式が合わないと反映されないため適応入力
     const dateInput = await findFirst(page, LANCERS_SELECTORS.completionDateInput, 2000);
     if (dateInput) {
-      await dateInput.fill(addDaysIso(bid.deliveryDays));
+      await fillDatePicker(dateInput, bid.deliveryDays);
+    }
+
+    // NDA同意チェック(ある案件のみ)。disabledはクラス名なのでforceでクリックする
+    const nda = await findFirst(page, LANCERS_SELECTORS.ndaCheckbox, 1500);
+    if (nda) {
+      await nda.check({ force: true }).catch(() => undefined);
     }
   }
 
@@ -145,12 +148,31 @@ export class LancersSubmitter {
   }
 }
 
-/** 今日からN日後をローカル基準の YYYY-MM-DD で返す。 */
-function addDaysIso(days: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() + days);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
+/** 今日からN日後の年月日を返す。 */
+function addDays(days: number): { y: number; m: number; d: number } {
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  return { y: date.getFullYear(), m: date.getMonth() + 1, d: date.getDate() };
+}
+
+/**
+ * react-datepicker のテキスト入力へ日付を反映する。
+ * dateFormatが不明なため、yyyy/MM/dd → 反映されなければ MM/dd/yyyy の順で試す。
+ * 入力後Enterで確定し、value が入ったかで成否を判定する。
+ */
+async function fillDatePicker(input: import('playwright').Locator, deliveryDays: number): Promise<void> {
+  const { y, m, d } = addDays(deliveryDays);
+  const mm = String(m).padStart(2, '0');
+  const dd = String(d).padStart(2, '0');
+  const formats = [`${y}/${mm}/${dd}`, `${mm}/${dd}/${y}`, `${y}-${mm}-${dd}`];
+
+  for (const value of formats) {
+    await input.click();
+    await input.fill('');
+    await input.type(value, { delay: 20 });
+    await input.press('Enter');
+    const current = await input.inputValue().catch(() => '');
+    if (current.trim().length > 0) return; // 反映された
+  }
+  // どの形式でも反映されない場合は、人間が最終確認スクショで気づける(送信前確認)
 }

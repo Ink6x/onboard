@@ -42,19 +42,17 @@ export const LANCERS_SELECTORS: SubmitSelectors = {
     'textarea[name="data[Proposal][description]"]',
   ],
   ndaCheckbox: [
-    // 「秘密保持契約の内容を確認した上で同意します」のチェックボックス
-    'input[type="checkbox"][name*="agree"]',
-    'input[type="checkbox"][name*="nda"]',
-    'input[type="checkbox"][name*="Nda"]',
+    // 「秘密保持契約の内容を確認した上で同意します」。class="disabled"はクラス名で属性ではない
+    '#ProposalIsAgreement',
+    'input[name="data[Proposal][is_agreement]"]',
   ],
   amountInput: [
-    // 計画の契約金額。ProposalOption[N]はnameを持つので、name無しのnumberを狙う
-    'input[type="number"]:not([name])',
+    // 主計画の契約金額(税抜)。ProposalOption[N]はnameを持つので name無し+step=1000 で一意
+    'input[type="number"][step="1000"]:not([name])',
   ],
   completionDateInput: [
-    'input[name*="delivery_date"]',
-    'input[name*="deadline"]',
-    'input[type="date"]',
+    // react-datepicker の入力欄(フォーム内で1個のみ)
+    '.react-datepicker__input-container input',
   ],
   submitButton: [
     '#form_end',
