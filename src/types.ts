@@ -2,6 +2,7 @@
 export const JOB_STATUSES = [
   'new', // メールから登録直後
   'skipped_low_score', // スコア閾値未満で自動スキップ
+  'notified_light', // 中間スコア: ライト通知済み(提案文は未生成。「興味あり」で生成)
   'pending_approval', // Telegramで承認待ち
   'editing', // 編集指示を受けて再生成中
   'approved', // 承認済み(送信待ち)

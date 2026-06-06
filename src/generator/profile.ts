@@ -21,6 +21,7 @@ const profileSchema = z.object({
   skills: z.array(z.string()),
   categories: z.array(z.string()), // 対応可能な案件カテゴリ(スコアリング用キーワード)
   ngKeywords: z.array(z.string()).default([]), // 含まれていたら自動スキップ
+  penaltyKeywords: z.array(z.string()).default([]), // 非ターゲット職種の減点語(経理・動画編集等)。NGと違い開発シグナルが強ければ生き残れる
   conditions: z.object({
     minBudgetYen: z.number().optional(),
     weeklyHours: z.string(), // 例「週20時間」

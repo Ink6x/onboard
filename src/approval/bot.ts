@@ -4,6 +4,7 @@ import {
   buildApprovalCard,
   buildApprovedManualCard,
   buildEditPromptCard,
+  buildLightCard,
   buildSkippedCard,
   buildSubmittedCard,
 } from './cards.js';
@@ -19,10 +20,18 @@ export type SubmitOutcome =
   | { readonly kind: 'submitted'; readonly job: Job; readonly screenshotPath: string }
   | { readonly kind: 'error'; readonly message: string; readonly screenshotPath: string | null };
 
+/** 「興味あり」(ライト通知からの提案文生成)の結果。 */
+export type InterestOutcome =
+  | { readonly kind: 'generated'; readonly job: Job } // 承認カードはパイプライン側から送信済み
+  | { readonly kind: 'busy' } // 同一案件の生成が進行中
+  | { readonly kind: 'error'; readonly message: string };
+
 /** パイプライン側が実装するコールバック群(botはUIの配線のみを担当)。 */
 export interface ApprovalHandlers {
   getJob(jobId: number): Promise<Job | null>;
   onApprove(jobId: number): Promise<ApproveOutcome | null>;
+  /** ライト通知の「興味あり」: 提案文を生成して承認待ちへ進める */
+  onInterest(jobId: number): Promise<InterestOutcome | null>;
   onSkip(jobId: number): Promise<Job | null>;
   /** 編集指示を受けて再生成し、新しい提案文を返す */
   onEditInstruction(jobId: number, instruction: string): Promise<{ job: Job; proposal: Proposal } | null>;
@@ -39,6 +48,7 @@ export interface ApprovalHandlers {
 export interface ApprovalBot {
   readonly bot: Bot;
   sendApprovalCard(job: Job, proposal: Proposal): Promise<number>;
+  sendLightCard(job: Job): Promise<number>;
   notify(text: string): Promise<void>;
   start(): void;
   stop(): Promise<void>;
@@ -141,6 +151,23 @@ export function createApprovalBot(
     });
   });
 
+  bot.callbackQuery(/^interest:(\d+)$/, async (ctx) => {
+    await ack(ctx, '提案文の生成を開始しました');
+    const jobId = Number(ctx.match[1]);
+    const progress = await ctx.reply('✍️ 依頼文を分析して提案文を生成中です…(30秒〜1分ほど)');
+
+    const outcome = await handlers.onInterest(jobId);
+    if (!outcome) {
+      await ctx.reply('生成できませんでした(処理済み・状態変更済みの可能性)。');
+    } else if (outcome.kind === 'busy') {
+      await ctx.reply('この案件の提案文は生成中です。完了までお待ちください。');
+    } else if (outcome.kind === 'error') {
+      await ctx.reply(outcome.message);
+    }
+    // kind === 'generated' の場合は承認カードがパイプラインから届くため追加返信は不要
+    await ctx.api.deleteMessage(progress.chat.id, progress.message_id).catch(() => undefined);
+  });
+
   bot.callbackQuery(/^skip:(\d+)$/, async (ctx) => {
     await ack(ctx, 'スキップしました');
     const jobId = Number(ctx.match[1]);
@@ -221,9 +248,22 @@ export function createApprovalBot(
     return message.message_id;
   }
 
+  async function sendLight(job: Job): Promise<number> {
+    const keyboard = new InlineKeyboard()
+      .text('✍️ 興味あり', `interest:${job.id}`)
+      .text('⏭ スキップ', `skip:${job.id}`);
+    const message = await bot.api.sendMessage(chatId, buildLightCard(job), {
+      parse_mode: 'HTML',
+      reply_markup: keyboard,
+      link_preview_options: { is_disabled: true },
+    });
+    return message.message_id;
+  }
+
   return {
     bot,
     sendApprovalCard: (job, proposal) => sendCard(bot, chatId, job, proposal),
+    sendLightCard: (job) => sendLight(job),
     notify: async (text) => {
       await bot.api.sendMessage(chatId, text, { parse_mode: 'HTML' });
     },

@@ -52,7 +52,12 @@ const envSchema = z.object({
     .default('true')
     .transform((v) => v === 'true'),
   MAX_APPLICATIONS_PER_DAY: z.coerce.number().int().positive().default(3),
-  MIN_FIT_SCORE: z.coerce.number().int().min(0).max(100).default(60),
+  // === 2段階ティアのスコア閾値 ===
+  // この値以上: 提案文を自動生成して承認カードを送る(専門ど真ん中の案件)
+  FULL_AUTO_SCORE: z.coerce.number().int().min(0).max(100).default(70),
+  // この値以上FULL_AUTO_SCORE未満: ライトカードのみ通知し、「興味あり」押下で初めて生成
+  // (周辺領域の実績作り対象。トークンを消費しない)。未満はサイレントスキップ。
+  LIGHT_NOTIFY_SCORE: z.coerce.number().int().min(0).max(100).default(40),
   SUBMIT_MODE: z.enum(['manual', 'auto']).default('manual'),
   PLAYWRIGHT_PROFILE_DIR: z.string().default('./.playwright-profile'),
   PLAYWRIGHT_HEADLESS: z
@@ -72,11 +77,16 @@ const envSchema = z.object({
   PROFILE_PATH: z.string().default('./profile.yaml'),
 });
 
-export type Config = z.infer<typeof envSchema>;
+const validatedSchema = envSchema.refine(
+  (env) => env.LIGHT_NOTIFY_SCORE <= env.FULL_AUTO_SCORE,
+  { message: 'LIGHT_NOTIFY_SCORE は FULL_AUTO_SCORE 以下にしてください', path: ['LIGHT_NOTIFY_SCORE'] },
+);
+
+export type Config = z.infer<typeof validatedSchema>;
 
 /** 起動時に環境変数を検証して返す。不足があれば明確なエラーで落とす。 */
 export function loadConfig(): Config {
-  const parsed = envSchema.safeParse(process.env);
+  const parsed = validatedSchema.safeParse(process.env);
   if (!parsed.success) {
     const issues = parsed.error.issues
       .map((i) => `  - ${i.path.join('.')}: ${i.message}`)

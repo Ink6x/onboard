@@ -22,7 +22,9 @@
     "requeue": "tsx scripts/requeue.ts",
     "web:collect": "tsx scripts/web-collect-once.ts",
     "lancers:survey": "tsx scripts/lancers-login-survey.ts",
-    "e2e:dummy": "tsx scripts/inject-dummy.ts"
+    "e2e:dummy": "tsx scripts/inject-dummy.ts",
+    "scores:replay": "tsx scripts/replay-scores.ts",
+    "retriage": "tsx scripts/retriage.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",

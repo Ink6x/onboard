@@ -33,14 +33,17 @@ export interface PipelineDeps {
   readonly submitter: LancersSubmitter | null;
   /** 承認待ちカードを送り、Telegram message_id を返す */
   sendApprovalCard(job: Job, proposal: Proposal): Promise<number>;
+  /** ライト通知カード(提案文なし・「興味あり」ボタン付き)を送り、message_id を返す */
+  sendLightCard(job: Job): Promise<number>;
   /** ユーザーへの通知(制限超過・警告など) */
   notify(text: string): Promise<void>;
 }
 
 /** 状態機械: 許可される遷移のホワイトリスト。逆行(submitted→editing等)を防ぐ。 */
 const ALLOWED_TRANSITIONS: Record<JobStatus, readonly JobStatus[]> = {
-  new: ['pending_approval', 'skipped_low_score', 'failed'],
+  new: ['pending_approval', 'notified_light', 'skipped_low_score', 'failed'],
   skipped_low_score: [],
+  notified_light: ['pending_approval', 'skipped_manual'],
   pending_approval: ['approved', 'editing', 'skipped_manual'],
   editing: ['pending_approval', 'skipped_manual'],
   approved: ['submitting', 'submitted', 'failed', 'skipped_manual', 'pending_approval'],
@@ -87,8 +90,11 @@ async function transition(
 }
 
 /**
- * status=new の案件を順に処理する:
- * スコアリング → 閾値未満は自動スキップ / 以上は提案文生成 → Telegram承認待ちへ
+ * status=new の案件を順に処理する(2段階ティア):
+ * スコアリング →
+ *   FULL_AUTO_SCORE以上: 提案文を自動生成 → 承認カード(専門ど真ん中。スピード優先)
+ *   LIGHT_NOTIFY_SCORE以上: ライトカードのみ通知(周辺領域。「興味あり」押下で生成しトークン節約)
+ *   未満: サイレントスキップ
  */
 export async function processNewJobs(deps: PipelineDeps): Promise<void> {
   const newJobs = listJobsByStatus(deps.db, 'new');
@@ -129,24 +135,48 @@ async function processJob(deps: PipelineDeps, job: Job): Promise<void> {
   logEvent(deps.db, fresh.id, 'job:scored', { score: score.score, reason: score.reason });
   if (!scored) return;
 
-  if (score.score < deps.config.MIN_FIT_SCORE) {
+  if (score.score < deps.config.LIGHT_NOTIFY_SCORE) {
     await transition(deps, fresh.id, 'skipped_low_score', { score: score.score });
     return;
   }
 
-  const generated = await deps.generator.generate(scored, deps.profile, score);
-  const proposal = insertProposal(deps.db, fresh.id, generated.content, null);
-  logEvent(deps.db, fresh.id, 'proposal:generated', { version: proposal.version });
-  // Stage 1の案件分析を監査ログに残す(承認判断・後からの振り返り材料)
-  if (generated.analysis) {
-    logEvent(deps.db, fresh.id, 'proposal:analysis', { ...generated.analysis });
+  // 中間ティア: 提案文は生成せず、ライトカードだけ送って人間の興味判断を待つ。
+  // カード送信を遷移より先に行う: 送信失敗時はnewに留まり、次tickで自然に再試行される
+  // (遷移後に送信が失敗すると「通知済みなのにカードが無い」孤児ができるため)。
+  if (score.score < deps.config.FULL_AUTO_SCORE) {
+    const messageId = await deps.sendLightCard(scored);
+    const notified = await transition(deps, fresh.id, 'notified_light', { score: score.score });
+    if (notified) {
+      setJobTelegramMessageId(deps.db, notified.id, messageId);
+    }
+    return;
   }
 
-  const pending = await transition(deps, fresh.id, 'pending_approval');
+  await generateAndRequestApproval(deps, scored, score);
+}
+
+/** 提案文を生成して承認待ちカードを送る(フル自動ティアと「興味あり」押下の共通処理)。 */
+async function generateAndRequestApproval(
+  deps: PipelineDeps,
+  job: Job,
+  score: ReturnType<Scorer['score']>,
+): Promise<Job | null> {
+  const generated = await deps.generator.generate(job, deps.profile, score);
+  const proposal = insertProposal(deps.db, job.id, generated.content, null);
+  logEvent(deps.db, job.id, 'proposal:generated', { version: proposal.version });
+  // Stage 1の案件分析を監査ログに残す(承認判断・後からの振り返り材料)
+  if (generated.analysis) {
+    logEvent(deps.db, job.id, 'proposal:analysis', { ...generated.analysis });
+  }
+
+  // カード送信を遷移より先に行う: 送信失敗時は元の状態(new / notified_light)に留まり、
+  // 次tickまたは「興味あり」再押下で再試行できる(承認待ちなのにカードが無い孤児を防ぐ)。
+  const messageId = await deps.sendApprovalCard(job, proposal);
+  const pending = await transition(deps, job.id, 'pending_approval');
   if (pending) {
-    const messageId = await deps.sendApprovalCard(pending, proposal);
     setJobTelegramMessageId(deps.db, pending.id, messageId);
   }
+  return pending;
 }
 
 /** 編集系操作を受け付けてよい状態か */
@@ -248,8 +278,47 @@ export async function recoverStuckJobs(deps: PipelineDeps): Promise<void> {
 
 /** Telegramボットに渡す承認ハンドラー群を生成する。 */
 export function createApprovalHandlers(deps: PipelineDeps): ApprovalHandlers {
+  // 「興味あり」押下で生成中の案件ID(同一案件の二重生成を防ぐ。単一プロセス前提)
+  const generatingJobs = new Set<number>();
+
   return {
     getJob: async (jobId) => getJob(deps.db, jobId),
+
+    onInterest: async (jobId) => {
+      const job = getJob(deps.db, jobId);
+      if (!job || job.status !== 'notified_light') return null;
+      if (generatingJobs.has(jobId)) return { kind: 'busy' };
+
+      generatingJobs.add(jobId);
+      try {
+        // ライト通知時点で詳細未取得の場合はここで取得する(提案文の質に直結)
+        let fresh = job;
+        if (!fresh.description && fresh.url.includes('lancers.jp/work/detail/')) {
+          const detail = await fetchJobDetail(fresh.url);
+          if (detail) {
+            const enriched = updateJobDetail(deps.db, fresh.id, {
+              description: detail.description,
+              proposalCount: detail.proposalCount,
+            });
+            if (enriched) fresh = enriched;
+          }
+        }
+
+        const score = deps.scorer.score(fresh, deps.profile);
+        logEvent(deps.db, fresh.id, 'interest:accepted', { score: score.score });
+        const pending = await generateAndRequestApproval(deps, fresh, score);
+        return pending ? { kind: 'generated', job: pending } : null;
+      } catch (error) {
+        // notified_lightに留める(ボタン再押下で再試行できる)
+        logEvent(deps.db, jobId, 'interest:error', { message: String(error) });
+        return {
+          kind: 'error',
+          message: '⚠️ 提案文の生成に失敗しました。もう一度「興味あり」を押すと再試行します。',
+        };
+      } finally {
+        generatingJobs.delete(jobId);
+      }
+    },
 
     onApprove: async (jobId): Promise<ApproveOutcome | null> => {
       // 承認待ちの案件のみ受け付ける(連打・古いボタンの再押下で二重処理しない)

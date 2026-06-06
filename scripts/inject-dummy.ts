@@ -16,7 +16,7 @@ import { createNotionProjection } from '../src/projection/notion.js';
 import { insertJobIfNew } from '../src/store/jobs.js';
 import { logEvent } from '../src/store/audit.js';
 import { processNewJobs, type PipelineDeps } from '../src/pipeline.js';
-import { buildApprovalCard } from '../src/approval/cards.js';
+import { buildApprovalCard, buildLightCard } from '../src/approval/cards.js';
 import { Bot, InlineKeyboard } from 'grammy';
 
 const DUMMY_JOB = {
@@ -63,6 +63,18 @@ async function main(): Promise<void> {
         { parse_mode: 'HTML', reply_markup: keyboard, link_preview_options: { is_disabled: true } },
       );
       console.log('4. Telegramに承認カードを送信しました');
+      return message.message_id;
+    },
+    sendLightCard: async (lightJob) => {
+      const keyboard = new InlineKeyboard()
+        .text('✍️ 興味あり', `interest:${lightJob.id}`)
+        .text('⏭ スキップ', `skip:${lightJob.id}`);
+      const message = await bot.api.sendMessage(config.TELEGRAM_CHAT_ID, buildLightCard(lightJob), {
+        parse_mode: 'HTML',
+        reply_markup: keyboard,
+        link_preview_options: { is_disabled: true },
+      });
+      console.log('4. Telegramにライト通知カードを送信しました(中間ティア)');
       return message.message_id;
     },
     notify: async (text) => {

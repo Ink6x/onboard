@@ -50,6 +50,25 @@ function clampMessage(text: string): string {
   return `${text.slice(0, MAX_MESSAGE_LENGTH - 20)}…</blockquote>`;
 }
 
+/**
+ * ライト通知カード(中間ティア)。提案文はまだ生成していない。
+ * 「興味あり」が押されて初めて詳細分析+生成が走る(トークン節約)。
+ */
+export function buildLightCard(job: Job): string {
+  return [
+    `<b>🔎 案件候補(周辺領域)</b>`,
+    ``,
+    `<b>案件:</b> ${escapeHtml(job.title)}`,
+    `<b>カテゴリ:</b> ${escapeHtml(job.category ?? '不明')}`,
+    `<b>予算:</b> ${escapeHtml(job.budgetText ?? '不明')} / <b>締切:</b> ${escapeHtml(job.deadline ?? '不明')}`,
+    `<b>適合スコア:</b> ${job.fitScore ?? '-'} / 100`,
+    `<b>判定理由:</b> ${escapeHtml(job.scoreReason ?? '-')}`,
+    `<b>URL:</b> ${escapeHtml(job.url)}`,
+    ``,
+    `「✍️ 興味あり」を押すと依頼文を分析して提案文を生成します(30秒〜1分)。`,
+  ].join('\n');
+}
+
 /** 承認後(手動送信モード)の案内文。 */
 export function buildApprovedManualCard(job: Job): string {
   return [

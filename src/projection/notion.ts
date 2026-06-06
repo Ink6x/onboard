@@ -7,6 +7,7 @@ import { setJobNotionPageId } from '../store/jobs.js';
 export const STATUS_LABELS: Record<JobStatus, string> = {
   new: '新着',
   skipped_low_score: 'スキップ(低スコア)',
+  notified_light: 'ライト通知',
   pending_approval: '承認待ち',
   editing: '編集中',
   approved: '承認済み',

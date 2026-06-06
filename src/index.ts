@@ -42,6 +42,7 @@ async function main(): Promise<void> {
     notion: createNotionProjection(config.NOTION_TOKEN, config.NOTION_DATABASE_ID, db),
     submitter,
     sendApprovalCard: async (job, proposal) => approvalBot.sendApprovalCard(job, proposal),
+    sendLightCard: async (job) => approvalBot.sendLightCard(job),
     notify: async (text) => approvalBot.notify(text),
   };
 
