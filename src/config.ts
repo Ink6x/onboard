@@ -21,6 +21,10 @@ const envSchema = z.object({
     .enum(['true', 'false'])
     .default('false')
     .transform((v) => v === 'true'),
+  // 実ブラウザの実行ファイル(Brave等)。指定すると同梱Chromiumの代わりに使う。
+  PLAYWRIGHT_EXECUTABLE_PATH: z.string().default(''),
+  // または 'chrome' / 'msedge' などインストール済みチャンネル名
+  PLAYWRIGHT_CHANNEL: z.string().default(''),
   SCREENSHOT_DIR: z.string().default('./data/screenshots'),
   SUBMIT_HOURS_START: z.coerce.number().int().min(0).max(23).default(9),
   SUBMIT_HOURS_END: z.coerce.number().int().min(1).max(24).default(22),

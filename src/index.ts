@@ -25,6 +25,10 @@ async function main(): Promise<void> {
           profileDir: config.PLAYWRIGHT_PROFILE_DIR,
           headless: config.PLAYWRIGHT_HEADLESS,
           screenshotDir: config.SCREENSHOT_DIR,
+          ...(config.PLAYWRIGHT_EXECUTABLE_PATH
+            ? { executablePath: config.PLAYWRIGHT_EXECUTABLE_PATH }
+            : {}),
+          ...(config.PLAYWRIGHT_CHANNEL ? { channel: config.PLAYWRIGHT_CHANNEL } : {}),
         })
       : null;
 

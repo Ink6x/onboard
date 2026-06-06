@@ -16,7 +16,14 @@ async function main(): Promise<void> {
   if (!url) throw new Error('使い方: npm run lancers:calibrate -- <案件URL>');
 
   const config = loadConfig();
-  const session = await launchBrowser(config.PLAYWRIGHT_PROFILE_DIR, false);
+  const session = await launchBrowser({
+    profileDir: config.PLAYWRIGHT_PROFILE_DIR,
+    headless: false,
+    ...(config.PLAYWRIGHT_EXECUTABLE_PATH
+      ? { executablePath: config.PLAYWRIGHT_EXECUTABLE_PATH }
+      : {}),
+    ...(config.PLAYWRIGHT_CHANNEL ? { channel: config.PLAYWRIGHT_CHANNEL } : {}),
+  });
   const page = await session.newPage();
 
   if (!(await isLoggedIn(page))) {

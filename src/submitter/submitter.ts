@@ -17,6 +17,8 @@ export interface SubmitterOptions {
   readonly profileDir: string;
   readonly headless: boolean;
   readonly screenshotDir: string;
+  readonly executablePath?: string;
+  readonly channel?: string;
 }
 
 /**
@@ -36,7 +38,12 @@ export class LancersSubmitter {
   async run(job: Job, bid: BidValues, proposalText: string, stage: SubmitStage): Promise<SubmitResult> {
     let session: BrowserSession | null = null;
     try {
-      session = await launchBrowser(this.options.profileDir, this.options.headless);
+      session = await launchBrowser({
+        profileDir: this.options.profileDir,
+        headless: this.options.headless,
+        ...(this.options.executablePath ? { executablePath: this.options.executablePath } : {}),
+        ...(this.options.channel ? { channel: this.options.channel } : {}),
+      });
       const page = await session.newPage();
 
       if (!(await isLoggedIn(page))) {

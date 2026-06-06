@@ -8,6 +8,7 @@ data/
 credentials/
 screenshots/
 .playwright-profile/
+.playwright-smoke/
 data/screenshots/
 data/detail-sample.html
 data/email-samples/

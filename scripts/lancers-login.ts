@@ -13,12 +13,23 @@ import { launchBrowser, isLoggedIn } from '../src/submitter/browser.js';
 async function main(): Promise<void> {
   const config = loadConfig();
   // ログインは必ずヘッド付きで開く(headless設定に関わらず)
-  const session = await launchBrowser(config.PLAYWRIGHT_PROFILE_DIR, false);
+  const session = await launchBrowser({
+    profileDir: config.PLAYWRIGHT_PROFILE_DIR,
+    headless: false,
+    ...(config.PLAYWRIGHT_EXECUTABLE_PATH
+      ? { executablePath: config.PLAYWRIGHT_EXECUTABLE_PATH }
+      : {}),
+    ...(config.PLAYWRIGHT_CHANNEL ? { channel: config.PLAYWRIGHT_CHANNEL } : {}),
+  });
   const page = await session.newPage();
 
   await page.goto('https://www.lancers.jp/user/login', { waitUntil: 'domcontentloaded' });
-  console.log('\nブラウザでLancersにログインしてください(2FAがあれば完了まで)。');
-  console.log('ログインが終わったら、このターミナルで Enter を押してください。');
+  console.log('\n=== Lancersログイン ===');
+  console.log('⚠️ 「Googleでログイン」は使わないでください(自動化ブラウザはGoogleに拒否されます)。');
+  console.log('   → 画面の「メールアドレス」「パスワード」欄から直接ログインしてください。');
+  console.log('   Googleアカウントで登録していてパスワード未設定の場合は、');
+  console.log('   先に https://www.lancers.jp/user/passwordReset でパスワードを設定してください。');
+  console.log('\n2FAがあれば完了まで進め、ログインが終わったらこのターミナルで Enter を押してください。');
 
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   await rl.question('');
