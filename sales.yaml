@@ -107,7 +107,9 @@ penaltyKeywords:
 
 conditions:
   minBudgetYen: 1000 # 検証中は小額案件も通す(本番は50000等に戻す)
-  weeklyHours: 週20時間
+  # 稼働可能枠の上限。提案文では一律にこれを提示せず、案件側の要望に合わせて柔軟に表現する
+  # (生成プロンプト側の「稼働時間の提示ルール」参照)
+  weeklyHours: 平日最大4日・土日も稼働可
   responseSla: ご連絡には24時間以内に返信します
   firstDraftDays: 着手から5営業日以内に初回成果物を共有します
 

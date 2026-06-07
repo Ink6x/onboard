@@ -12,7 +12,7 @@ import {
 import {
   forbiddenTermsSchema,
   kbWorkFrontmatterSchema,
-  lancersAllowlistSchema,
+  lancersChannelSchema,
   type KbSnapshot,
   type KbWork,
 } from './kbSchema.js';
@@ -27,7 +27,6 @@ import {
 const KB_FILES = {
   disclosure: 'DISCLOSURE.md',
   channels: 'channels/channels.md',
-  profile: 'profile/profile.md',
   career: 'profile/career.md',
   selfPr: 'texts/self-pr.md',
   intro: 'texts/intro.md',
@@ -66,19 +65,30 @@ export function parseWorkFile(content: string, relativePath: string): KbWork {
   };
 }
 
-/** channels.md から Lancers 掲載 slug リストを抽出する(エクスポートはテスト用)。 */
-export function extractLancersAllowlist(channelsMd: string): readonly string[] {
+/** channels.md の Lancers チャネル設定ブロックをパースする。 */
+function parseLancersChannel(channelsMd: string) {
   const block = extractYamlBlock(channelsMd, 'lancers_works');
   if (!block) {
     throw new Error(
-      'channels.md に lancers_works の機械可読ブロック(```yaml)が見つかりません。KBに Lancers 掲載実績リストを定義してください',
+      'channels.md に lancers_works の機械可読ブロック(```yaml)が見つかりません。KBに Lancers チャネル設定を定義してください',
     );
   }
-  const parsed = lancersAllowlistSchema.safeParse(block);
+  const parsed = lancersChannelSchema.safeParse(block);
   if (!parsed.success) {
-    throw new Error(`channels.md の lancers_works が不正です: ${parsed.error.issues[0]?.message}`);
+    const issues = parsed.error.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join(' / ');
+    throw new Error(`channels.md の Lancers チャネル設定が不正です(${issues})`);
   }
-  return parsed.data.lancers_works;
+  return parsed.data;
+}
+
+/** channels.md から Lancers 掲載 slug リストを抽出する(エクスポートはテスト用)。 */
+export function extractLancersAllowlist(channelsMd: string): readonly string[] {
+  return parseLancersChannel(channelsMd).lancers_works;
+}
+
+/** channels.md から Lancers の提案文で名乗る表示名を抽出する(エクスポートはテスト用)。 */
+export function extractLancersDisplayName(channelsMd: string): string {
+  return parseLancersChannel(channelsMd).lancers_display_name;
 }
 
 /** DISCLOSURE.md から禁止語リストを抽出する(エクスポートはテスト用)。 */
@@ -95,16 +105,6 @@ export function extractForbiddenTerms(disclosureMd: string): readonly string[] {
     throw new Error(`DISCLOSURE.md の forbidden_terms が不正です: ${parsed.error.issues[0]?.message}`);
   }
   return parsed.data.forbidden_terms;
-}
-
-/** profile.md の「公開名」行から表示名を取り出す(例: "Ink6x（GitHub等） / Jullien" → "Ink6x")。 */
-export function extractDisplayName(profileMd: string): string {
-  const cell = lookupTableValue(profileMd, '公開名', 1);
-  const name = cell?.match(/^[A-Za-z0-9_+-]+/)?.[0];
-  if (!name) {
-    throw new Error('profile/profile.md の本人情報テーブルから「公開名」を抽出できません');
-  }
-  return name;
 }
 
 /** intro.md の肩書きテーブルから「公開（日本語）」の表記を取り出す。 */
@@ -185,7 +185,7 @@ export function loadKbSnapshot(kbDir: string): KbSnapshot {
     works,
     lancersAllowlist: extractLancersAllowlist(content(KB_FILES.channels)),
     forbiddenTerms: extractForbiddenTerms(content(KB_FILES.disclosure)),
-    displayName: extractDisplayName(content(KB_FILES.profile)),
+    displayName: extractLancersDisplayName(content(KB_FILES.channels)),
     headline: extractHeadline(content(KB_FILES.intro)),
     intro: extractIntroText(content(KB_FILES.selfPr)),
     strengths: extractStrengths(content(KB_FILES.selfPr)),

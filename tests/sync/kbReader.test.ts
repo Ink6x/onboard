@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
-  extractDisplayName,
   extractForbiddenTerms,
   extractHeadline,
   extractIntroText,
   extractLancersAllowlist,
+  extractLancersDisplayName,
   extractStrengths,
   parseWorkFile,
 } from '../../src/sync/kbReader.js';
@@ -69,15 +69,26 @@ describe('parseWorkFile', () => {
   });
 });
 
-describe('extractLancersAllowlist / extractForbiddenTerms (fail-closed)', () => {
-  it('yamlブロックからリストを抽出する', () => {
-    const md = '前文\n```yaml\nlancers_works:\n  - work-a # コメント\n  - work-b\n```';
-    expect(extractLancersAllowlist(md)).toEqual(['work-a', 'work-b']);
+describe('Lancersチャネル設定 / extractForbiddenTerms (fail-closed)', () => {
+  const CHANNELS_MD = '前文\n```yaml\nlancers_display_name: じゅり # 表示名\nlancers_works:\n  - work-a # コメント\n  - work-b\n```';
+
+  it('yamlブロックから掲載リストを抽出する', () => {
+    expect(extractLancersAllowlist(CHANNELS_MD)).toEqual(['work-a', 'work-b']);
+  });
+
+  it('yamlブロックからLancers表示名を抽出する', () => {
+    expect(extractLancersDisplayName(CHANNELS_MD)).toBe('じゅり');
   });
 
   it('ブロックが無ければthrowする', () => {
     expect(() => extractLancersAllowlist('リスト無し')).toThrow(/lancers_works/);
     expect(() => extractForbiddenTerms('リスト無し')).toThrow(/fail-closed/);
+  });
+
+  it('表示名が無ければthrowする(黙ってデフォルトにしない)', () => {
+    const md = '```yaml\nlancers_works:\n  - work-a\n```';
+    expect(() => extractLancersDisplayName(md)).toThrow(/lancers_display_name/);
+    expect(() => extractLancersAllowlist(md)).toThrow(/lancers_display_name/);
   });
 
   it('禁止語ブロックを抽出する', () => {
@@ -87,11 +98,6 @@ describe('extractLancersAllowlist / extractForbiddenTerms (fail-closed)', () => 
 });
 
 describe('プロフィール系の抽出', () => {
-  it('公開名テーブルからdisplayNameを抽出する', () => {
-    const md = '| 項目 | 値 |\n|---|---|\n| 公開名 | Ink6x（GitHub等） / Jullien（サイト表記） |';
-    expect(extractDisplayName(md)).toBe('Ink6x');
-  });
-
   it('肩書きテーブルからheadlineを抽出する', () => {
     const md = '| 用途 | 表記 | 公開層 |\n|---|---|---|\n| 公開（日本語） | AIワークフロー自動化 / フルスタック開発 | public |';
     expect(extractHeadline(md)).toBe('AIワークフロー自動化 / フルスタック開発');
@@ -108,7 +114,6 @@ describe('プロフィール系の抽出', () => {
   });
 
   it('抽出できない場合はthrowする(黙ってデフォルトにしない)', () => {
-    expect(() => extractDisplayName('テーブル無し')).toThrow(/公開名/);
     expect(() => extractHeadline('テーブル無し')).toThrow(/公開（日本語）/);
     expect(() => extractIntroText('## 別の見出し\n本文')).toThrow(/ショート版/);
     expect(() => extractStrengths('## 別の見出し\n本文')).toThrow(/スタンス/);

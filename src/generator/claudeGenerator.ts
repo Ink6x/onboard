@@ -171,9 +171,10 @@ ${profile.works
   .join('\n\n')}
 
 # 稼働条件(具体数値で提示すること)
-- 稼働時間: ${profile.conditions.weeklyHours}
+- 稼働可能枠(上限): ${profile.conditions.weeklyHours}
 - 返信: ${profile.conditions.responseSla}
 - 初稿: ${profile.conditions.firstDraftDays}
+- 稼働時間の提示ルール: 募集要項にクライアント側の稼働要望(例: 週20時間、週3日)が明記されている場合は、上記の稼働可能枠で対応できる範囲なら、相手の要望の単位・表現に合わせて答えること(例: 「週20時間ほど稼働できる方」→「週20時間の稼働が可能です」)。稼働可能枠を超える要望には誇張せず、対応できる範囲を正直に提示する。要望の記載が無い場合のみ稼働可能枠をそのまま提示する
 ${editBlock}
 ${feedback ? `\n# 修正フィードバック\n${feedback}` : ''}
 

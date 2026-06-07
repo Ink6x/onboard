@@ -55,8 +55,10 @@ export interface KbWork {
   readonly relativePath: string;
 }
 
-/** channels.md の機械可読ブロック。 */
-export const lancersAllowlistSchema = z.object({
+/** channels.md の機械可読ブロック(Lancersチャネル設定)。 */
+export const lancersChannelSchema = z.object({
+  /** 提案文で名乗る表示名(Lancersアカウント表示名に合わせる) */
+  lancers_display_name: z.string().min(1),
   lancers_works: z.array(z.string().min(1)).min(1),
 });
 
@@ -73,7 +75,7 @@ export interface KbSnapshot {
   readonly lancersAllowlist: readonly string[];
   /** DISCLOSURE.md 由来の禁止語 */
   readonly forbiddenTerms: readonly string[];
-  /** profile/profile.md 公開名 */
+  /** channels.md 由来の Lancers 表示名(提案文の名乗り) */
   readonly displayName: string;
   /** texts/intro.md 公開(日本語)肩書き */
   readonly headline: string;
