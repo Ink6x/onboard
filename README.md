@@ -1,5 +1,7 @@
 # onboard — Lancers 半自律応募システム
 
+[![CI](https://github.com/Ink6x/onboard/actions/workflows/ci.yml/badge.svg)](https://github.com/Ink6x/onboard/actions/workflows/ci.yml)
+
 Lancersのおすすめ案件通知メールをGmailから収集し、ポートフォリオをもとにAIが提案文を生成、Telegramで承認・編集してから応募するシステム。
 
 ```
