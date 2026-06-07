@@ -1,0 +1,119 @@
+# onboard 固有の営業設定(手管理。knowledge-base には存在しない情報)
+# profile.yaml は `npm run profile:sync` による自動生成物になったため、
+# スコアリング用キーワード・営業条件・入札設定はこのファイルで編集すること。
+# 同期時に knowledge-base 由来の内容と合成されて profile.yaml に出力される。
+
+# スコアリング用キーワード(提案文生成には使われない。scorer.ts 専用)
+skills:
+  - AI
+  - 生成AI
+  - ChatGPT
+  - Claude
+  - OpenAI
+  - Gemini
+  - LLM
+  - RAG
+  - チャットボット
+  - 自動化
+  - 業務効率化
+  - Next.js
+  - React
+  - TypeScript
+  - Python
+  - FastAPI
+  - Django
+  - Supabase
+  - PostgreSQL
+  - LINE
+  - Discord
+  - Slack
+  - スクレイピング
+  - Playwright
+  - n8n
+  - GAS
+  - OCR
+  - GCP
+  - AWS
+
+categories:
+  - AI開発
+  - AIチャットボット
+  - 業務自動化
+  - 業務効率化
+  - Webアプリ開発
+  - システム開発
+  - Webサイト制作
+  - API連携
+  - ツール開発
+
+ngKeywords:
+  - アダルト
+  - 成人向け
+  - R-18
+  - R18
+  - 出会い系
+  - 情報商材
+  - MLM
+  - ネットワークビジネス
+
+# 非ターゲット職種の減点語(タイトル一致 -20/語、説明文一致 -5/語)。
+# ngKeywordsと違い即除外ではないので、「AI×動画生成システム開発」のように
+# 開発シグナルが強い案件は減点されても生き残れる。
+penaltyKeywords:
+  # バックオフィス・事務系
+  - 経理
+  - 総務
+  - 人事
+  - 労務
+  - 秘書
+  - データ入力
+  - 文字起こし
+  - テープ起こし
+  - 出品作業
+  - 入力サポート
+  # クリエイティブ制作(開発を伴わない)
+  - 動画編集
+  - ナレーション
+  - 声優
+  - イラスト
+  - 漫画
+  - ロゴ
+  - チラシ
+  - パンフレット
+  - ポスター
+  - バナー
+  - ネーミング
+  - シナリオ
+  # ライティング・語学
+  - 記事作成
+  - ライティング
+  - 翻訳
+  - 通訳
+  # 営業・運用代行
+  - 営業代行
+  - テレアポ
+  - アポ取得
+  - 運用代行
+  - SNS運用
+  - Instagram運用
+  - インスタ運用
+  # 出演・士業など
+  - モデル募集
+  - 撮影
+  - リーガルチェック
+  - 行政書士
+  - アンケート
+  - モニター募集
+
+conditions:
+  minBudgetYen: 1000 # 検証中は小額案件も通す(本番は50000等に戻す)
+  weeklyHours: 週20時間
+  responseSla: ご連絡には24時間以内に返信します
+  firstDraftDays: 着手から5営業日以内に初回成果物を共有します
+
+# 自動送信時の希望金額・納期の決め方(SUBMIT_MODE=auto)
+bidding:
+  budgetRatio: 0.9 # 予算上限の90%を提示
+  fallbackAmountYen: 5000 # 予算不明時の提示額
+  deliveryDays: 30 # 提示する納期(日数)
+  minAmountYen: 1000 # 希望金額の下限ガード(検証中は小額に。本番は30000等)

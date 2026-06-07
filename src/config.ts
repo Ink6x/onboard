@@ -75,6 +75,8 @@ const envSchema = z.object({
   SUBMIT_DELAY_MAX_SEC: z.coerce.number().int().min(0).default(90),
   DATABASE_PATH: z.string().default('./data/onboard.sqlite'),
   PROFILE_PATH: z.string().default('./profile.yaml'),
+  // knowledge-base(SSoT)のパス。起動時に profile.yaml の鮮度照合に使う(npm run profile:sync の入力元)
+  KB_PATH: z.string().default('../knowledge-base'),
 });
 
 const validatedSchema = envSchema.refine(

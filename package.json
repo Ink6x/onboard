@@ -24,7 +24,9 @@
     "lancers:survey": "tsx scripts/lancers-login-survey.ts",
     "e2e:dummy": "tsx scripts/inject-dummy.ts",
     "scores:replay": "tsx scripts/replay-scores.ts",
-    "retriage": "tsx scripts/retriage.ts"
+    "retriage": "tsx scripts/retriage.ts",
+    "profile:sync": "tsx scripts/profile-sync.ts",
+    "profile:check": "tsx scripts/profile-staleness.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
