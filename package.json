@@ -26,7 +26,8 @@
     "scores:replay": "tsx scripts/replay-scores.ts",
     "retriage": "tsx scripts/retriage.ts",
     "profile:sync": "tsx scripts/profile-sync.ts",
-    "profile:check": "tsx scripts/profile-staleness.ts"
+    "profile:check": "tsx scripts/profile-staleness.ts",
+    "propose": "tsx scripts/propose.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
