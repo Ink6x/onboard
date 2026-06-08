@@ -47,8 +47,11 @@ npm test            # ユニットテスト
 ## 運用フロー
 
 1. 通知メールから新着案件を自動登録(URLで冪等)
-2. 案件詳細ページから依頼概要・提案数を取得 → 適合スコア < `MIN_FIT_SCORE` は自動スキップ(Notionには記録)
-3. 提案文を生成してTelegramへ承認カード送信
+2. 案件詳細ページから依頼概要・提案数を取得 → 適合スコアで3ティアに振り分け
+   - `FULL_AUTO_SCORE` 以上: 提案文を自動生成してTelegramへ承認カード送信
+   - `LIGHT_NOTIFY_SCORE` 以上: ライトカードのみ通知。「✍️興味あり」を押すと生成(トークン節約)
+   - 未満: 自動スキップ(Notionには記録)
+3. (フル自動ティアまたは興味あり押下後)提案文を生成してTelegramへ承認カード送信
 4. ✏️編集 → 修正指示を返信すると再生成して再確認(「差し替え:」で直接差し替えも可)
 5. ✅承認 → 送信モードにより分岐(下記)
 6. 受注・返信などのクライアント反応はNotion上で手動更新
@@ -92,7 +95,7 @@ npm run dev
 ## 設計メモ
 
 - **正(source of truth)**: パイプライン状態はSQLite。Notionは人間向けの投影(一方向同期)
-- **profile.yaml**: 提案文生成の唯一の正。実績・数値成果・スキル・NG条件・稼働条件
+- **profile.yaml**: 提案文生成の入力(自動生成物・手編集禁止)。人物・実績の正は `portfolio/knowledge-base/`、営業設定(skills/categories/NG語/conditions/bidding)の正は `sales.yaml`。`npm run profile:sync` で KB→LLM変換(匿名化)→禁止語スキャン(fail-closed)→diff承認 を経て再生成する。`npm run profile:check` でKBとの鮮度照合(起動時にも自動警告)
 - **提案文ロジック**: `src/generator/` のinterface越しに差し替え可能。v1はLancersベストプラクティス(7パーツ構成・300〜500字・数値実績・案件名を冒頭に)を織り込んだClaude呼び出し+自己検査
 - **メールパーサー**: 実フォーマット未入手のため汎用ヒューリスティック。実メール入手後に `tests/parser.test.ts` のフィクスチャを差し替えて精度を上げる
 - **Phase 4(未実装)**: `SUBMIT_MODE=auto` でのPlaywright自動送信。規約リスク(利用規約33条)を理解の上で導入する。レート制限(`MAX_APPLICATIONS_PER_DAY`)・営業時間内送信・証跡スクショを必須とする

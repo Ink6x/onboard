@@ -25,12 +25,16 @@ async function main(): Promise<void> {
   console.log(`スコア: ${score.score} (${score.reason})`);
 
   const generator = new ClaudeProposalGenerator(config.ANTHROPIC_API_KEY);
-  const proposal = await generator.generate(job, profile, score);
+  const { content: proposal, analysis } = await generator.generate(job, profile, score);
 
+  if (analysis) {
+    console.log('\n--- 案件分析 (Stage 1) ---');
+    console.log(JSON.stringify(analysis, null, 2));
+  }
   console.log(`\n--- 生成結果 (${proposal.length}字) ---`);
   console.log(proposal);
   console.log('--- 自己検査 ---');
-  const issues = validateProposal(proposal, job);
+  const issues = validateProposal(proposal, job, analysis?.recommendedLength);
   console.log(issues.length === 0 ? 'OK' : issues.join(' / '));
   db.close();
 }

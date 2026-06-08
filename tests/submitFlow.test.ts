@@ -13,13 +13,15 @@ const profile = {
   skills: [],
   categories: [],
   ngKeywords: [],
+  penaltyKeywords: [],
   conditions: { weeklyHours: '', responseSla: '', firstDraftDays: '' },
 } as unknown as Profile;
 
 const config = {
   SUBMIT_MODE: 'auto',
   MAX_APPLICATIONS_PER_DAY: 3,
-  MIN_FIT_SCORE: 60,
+  FULL_AUTO_SCORE: 70,
+  LIGHT_NOTIFY_SCORE: 40,
   SUBMIT_HOURS_START: 0,
   SUBMIT_HOURS_END: 24,
   SUBMIT_DELAY_MIN_SEC: 0,
@@ -37,10 +39,11 @@ function makeDeps(submitterRun: (stage: string) => SubmitResult) {
     config,
     profile,
     scorer: { score: () => ({ score: 80, reason: '', matchedWorks: [] }) },
-    generator: { generate: async () => 'x'.repeat(350) },
+    generator: { generate: async () => ({ content: 'x'.repeat(350), analysis: null }) },
     notion: { syncJob: async () => undefined },
     submitter,
     sendApprovalCard: async () => 1,
+    sendLightCard: async () => 2,
     notify: async () => undefined,
   };
   return { db, deps, submitter };

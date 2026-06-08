@@ -1,6 +1,7 @@
 import { loadConfig } from './config.js';
 import { openDb } from './store/db.js';
 import { loadProfile } from './generator/profile.js';
+import { checkProfileStaleness } from './sync/staleness.js';
 import { KeywordScorer } from './generator/scorer.js';
 import { ClaudeProposalGenerator } from './generator/claudeGenerator.js';
 import { createNotionProjection } from './projection/notion.js';
@@ -19,6 +20,12 @@ async function main(): Promise<void> {
   const config = loadConfig();
   const db = openDb(config.DATABASE_PATH);
   const profile = loadProfile(config.PROFILE_PATH);
+
+  // profile.yaml の鮮度照合: KB(SSoT)が同期後に更新されていたら警告する(起動は止めない)
+  const staleness = checkProfileStaleness(config.KB_PATH, './.kb-sync.json');
+  if (staleness.status === 'stale' || staleness.status === 'unsynced') {
+    console.warn(`[profile] ${staleness.message}`);
+  }
 
   const submitter =
     config.SUBMIT_MODE === 'auto'
@@ -42,6 +49,7 @@ async function main(): Promise<void> {
     notion: createNotionProjection(config.NOTION_TOKEN, config.NOTION_DATABASE_ID, db),
     submitter,
     sendApprovalCard: async (job, proposal) => approvalBot.sendApprovalCard(job, proposal),
+    sendLightCard: async (job) => approvalBot.sendLightCard(job),
     notify: async (text) => approvalBot.notify(text),
   };
 

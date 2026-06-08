@@ -7,6 +7,8 @@ const profile: Profile = {
   displayName: 'Test',
   headline: 'AI開発者',
   intro: 'テスト用',
+  careerSummary: '',
+  strengths: [],
   works: [
     {
       name: 'Coaching AI Workflow',
@@ -15,9 +17,10 @@ const profile: Profile = {
       stack: ['RAG', 'Next.js', 'LINE'],
     },
   ],
-  skills: ['ChatGPT', 'RAG', 'Next.js', 'TypeScript'],
+  skills: ['AI', 'ChatGPT', 'RAG', 'Next.js', 'TypeScript', 'LINE', '自動化'],
   categories: ['AI開発', '業務自動化'],
-  ngKeywords: ['アダルト'],
+  ngKeywords: ['アダルト', '成人向け'],
+  penaltyKeywords: ['経理', '総務', '動画編集', 'モデル募集', 'データ入力'],
   conditions: {
     minBudgetYen: 50000,
     weeklyHours: '週20時間',
@@ -97,6 +100,84 @@ describe('KeywordScorer', () => {
       profile,
     );
     expect(result.score).toBeGreaterThanOrEqual(60);
+  });
+});
+
+describe('KeywordScorer v2: 英数字キーワードの単語境界マッチ', () => {
+  const scorer = new KeywordScorer();
+
+  it('英単語内の部分一致を誤検知しない(detail の ai 等)', () => {
+    // DB実データで頻発した誤検知: 説明文中の英単語に「AI」「LINE」が部分一致していた
+    const result = scorer.score(
+      makeJob('ポスターのデザイン制作', 'Please see the detail. Online meeting available.'),
+      profile,
+    );
+    expect(result.score).toBe(0);
+    expect(result.reason).toContain('スキル一致 0件');
+  });
+
+  it('日本語文中の単独キーワードは正しく一致する(AIツール等)', () => {
+    const result = scorer.score(makeJob('AIを活用した業務自動化ツールの開発'), profile);
+    expect(result.score).toBeGreaterThan(0);
+    expect(result.reason).not.toContain('スキル一致 0件');
+  });
+
+  it('記号を含むキーワード(Next.js)を正しく一致させる', () => {
+    const result = scorer.score(makeJob('Webアプリ開発', 'Next.jsでのフロント実装'), profile);
+    expect(result.reason).not.toContain('スキル一致 0件');
+  });
+});
+
+describe('KeywordScorer v2: ペナルティキーワード', () => {
+  const scorer = new KeywordScorer();
+
+  it('タイトルに非開発職種(経理等)を含む案件を大幅減点する', () => {
+    // DB実データ #200: 経理募集なのに説明文の「業務自動化」一語で通知された
+    const result = scorer.score(
+      makeJob('月30万～【経理】急成長企業を支える経理募集', '業務自動化に積極的な会社です'),
+      profile,
+    );
+    expect(result.score).toBeLessThan(20);
+    expect(result.reason).toContain('減点');
+  });
+
+  it('タイトルにAIがあっても職種が動画編集なら減点する', () => {
+    const result = scorer.score(makeJob('【動画編集】AIアニメーション物語の編集パートナー募集'), profile);
+    expect(result.score).toBeLessThan(20);
+  });
+
+  it('強い開発シグナルがあればペナルティ語が説明文にあっても生き残る', () => {
+    // 「AIを使った動画生成」系の開発案件は実績作りの対象(ユーザー要件)
+    const result = scorer.score(
+      makeJob(
+        '【AI開発】ChatGPTとRAGを使った業務自動化システムの構築',
+        '動画編集ソフトとの連携も検討。Next.js管理画面あり',
+        '200,000円',
+      ),
+      profile,
+    );
+    expect(result.score).toBeGreaterThanOrEqual(60);
+  });
+});
+
+describe('KeywordScorer v2: タイトル重み付け', () => {
+  const scorer = new KeywordScorer();
+
+  it('同じ一致内容ならタイトル一致の方が高スコアになる', () => {
+    const inTitle = scorer.score(makeJob('ChatGPTを使ったRAGの構築', ''), profile);
+    const inDescOnly = scorer.score(makeJob('システムの構築', 'ChatGPTを使ったRAGの構築'), profile);
+    expect(inTitle.score).toBeGreaterThan(inDescOnly.score);
+  });
+});
+
+describe('KeywordScorer v2: NGキーワード追加分', () => {
+  const scorer = new KeywordScorer();
+
+  it('成人向け案件を0点にする', () => {
+    // DB実データ #53, #78: 成人向け案件がスコア10で通知されていた
+    const result = scorer.score(makeJob('成人向け音声作品のシナリオ制作の依頼'), profile);
+    expect(result.score).toBe(0);
+    expect(result.reason).toContain('NGキーワード');
   });
 });
 

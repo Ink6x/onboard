@@ -15,9 +15,10 @@ export function buildApprovalCard(job: Job, proposal: Proposal): string {
   const displayContent = truncated
     ? `${proposal.content.slice(0, MAX_PROPOSAL_DISPLAY)}\n…(表示上限のため省略。全文はNotionに保存済み)`
     : proposal.content;
+  // v2では文字数上限なし(案件の重さに応じて分量を適応)。生成暴走の検知として2000字超のみ注意喚起する
   const warning =
-    proposal.content.length > 600
-      ? `\n⚠️ <b>自己検査NG: 提案文が${proposal.content.length}字あります(推奨300〜500字)。編集で修正してください。</b>`
+    proposal.content.length > 2000
+      ? `\n⚠️ <b>提案文が${proposal.content.length}字あります。案件の重さに釣り合っているか確認してください。</b>`
       : '';
   const competitionNote =
     job.proposalCount !== null ? ` / 既存提案 ${job.proposalCount}件以上` : '';
@@ -47,6 +48,25 @@ export function buildApprovalCard(job: Job, proposal: Proposal): string {
 function clampMessage(text: string): string {
   if (text.length <= MAX_MESSAGE_LENGTH) return text;
   return `${text.slice(0, MAX_MESSAGE_LENGTH - 20)}…</blockquote>`;
+}
+
+/**
+ * ライト通知カード(中間ティア)。提案文はまだ生成していない。
+ * 「興味あり」が押されて初めて詳細分析+生成が走る(トークン節約)。
+ */
+export function buildLightCard(job: Job): string {
+  return [
+    `<b>🔎 案件候補(周辺領域)</b>`,
+    ``,
+    `<b>案件:</b> ${escapeHtml(job.title)}`,
+    `<b>カテゴリ:</b> ${escapeHtml(job.category ?? '不明')}`,
+    `<b>予算:</b> ${escapeHtml(job.budgetText ?? '不明')} / <b>締切:</b> ${escapeHtml(job.deadline ?? '不明')}`,
+    `<b>適合スコア:</b> ${job.fitScore ?? '-'} / 100`,
+    `<b>判定理由:</b> ${escapeHtml(job.scoreReason ?? '-')}`,
+    `<b>URL:</b> ${escapeHtml(job.url)}`,
+    ``,
+    `「✍️ 興味あり」を押すと依頼文を分析して提案文を生成します(30秒〜1分)。`,
+  ].join('\n');
 }
 
 /** 承認後(手動送信モード)の案内文。 */
