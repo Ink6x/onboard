@@ -34,7 +34,7 @@ async function main(): Promise<void> {
   console.log(`\n--- 生成結果 (${proposal.length}字) ---`);
   console.log(proposal);
   console.log('--- 自己検査 ---');
-  const issues = validateProposal(proposal, job);
+  const issues = validateProposal(proposal, job, analysis?.recommendedLength);
   console.log(issues.length === 0 ? 'OK' : issues.join(' / '));
   db.close();
 }

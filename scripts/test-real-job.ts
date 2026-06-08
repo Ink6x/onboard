@@ -59,7 +59,7 @@ async function main(): Promise<void> {
     console.log(`\n--- 案件分析 (Stage 1) ---\n${JSON.stringify(analysis, null, 2)}`);
   }
   console.log(`\n--- 提案文 (${proposal.length}字) ---\n${proposal}\n---`);
-  const issues = validateProposal(proposal, job);
+  const issues = validateProposal(proposal, job, analysis?.recommendedLength);
   console.log(`自己検査: ${issues.length === 0 ? 'OK' : issues.join(' / ')}`);
 }
 

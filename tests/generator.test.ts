@@ -7,16 +7,11 @@ function makeJob(title: string): Job {
   return { title } as Job;
 }
 
-describe('validateProposal (v2: 上限なし)', () => {
+describe('validateProposal (v3: 適正分量レンジの上限を強制)', () => {
   const job = makeJob('AIチャットボット開発のご依頼');
 
   it('下限を満たしタイトルに言及していればOK', () => {
     const proposal = `AIチャットボット開発の件、拝見しました。${'あ'.repeat(300)}`;
-    expect(validateProposal(proposal, job)).toEqual([]);
-  });
-
-  it('長文でも上限エラーを出さない(上限撤廃)', () => {
-    const proposal = `AIチャットボットの構築について。${'い'.repeat(1500)}`;
     expect(validateProposal(proposal, job)).toEqual([]);
   });
 
@@ -30,6 +25,34 @@ describe('validateProposal (v2: 上限なし)', () => {
     const proposal = `はじめまして。${'う'.repeat(300)}`;
     const issues = validateProposal(proposal, job);
     expect(issues.some((i) => i.includes('タイトル'))).toBe(true);
+  });
+
+  it('shortレンジ(上限600字)を大きく超えるとNGになる', () => {
+    const proposal = `AIチャットボットの構築について。${'い'.repeat(900)}`;
+    const issues = validateProposal(proposal, job, 'short');
+    expect(issues.some((i) => i.includes('上限600字'))).toBe(true);
+  });
+
+  it('mediumレンジで上限1000字+許容1割以内ならOK', () => {
+    const proposal = `AIチャットボットの構築について。${'い'.repeat(1050)}`;
+    expect(validateProposal(proposal, job, 'medium')).toEqual([]);
+  });
+
+  it('mediumレンジで上限1000字を1割超えて超過するとNGになる', () => {
+    const proposal = `AIチャットボットの構築について。${'い'.repeat(1200)}`;
+    const issues = validateProposal(proposal, job, 'medium');
+    expect(issues.some((i) => i.includes('上限1000字'))).toBe(true);
+  });
+
+  it('分析なしの場合はlong上限(1600字)を適用し、2000字近い出力はNGになる', () => {
+    const proposal = `AIチャットボットの構築について。${'い'.repeat(1950)}`;
+    const issues = validateProposal(proposal, job);
+    expect(issues.some((i) => i.includes('上限1600字'))).toBe(true);
+  });
+
+  it('longレンジで1600字以内ならOK', () => {
+    const proposal = `AIチャットボットの構築について。${'い'.repeat(1500)}`;
+    expect(validateProposal(proposal, job, 'long')).toEqual([]);
   });
 });
 

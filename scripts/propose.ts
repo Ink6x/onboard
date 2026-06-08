@@ -117,7 +117,7 @@ async function generateOne(
 
   console.log('[propose] 提案文生成中…');
   const { content: proposal, analysis } = await generator.generate(job, profile, score);
-  const issues = validateProposal(proposal, job);
+  const issues = validateProposal(proposal, job, analysis?.recommendedLength);
 
   console.log(`\n--- 提案文 (${proposal.length}字) ---\n${proposal}\n---`);
   console.log(`自己検査: ${issues.length === 0 ? 'OK' : issues.join(' / ')}`);
