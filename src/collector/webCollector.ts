@@ -156,33 +156,37 @@ export async function collectFromWebLoggedIn(deps: WebCollectorDeps): Promise<re
     const newJobs: Job[] = [];
     let parsedTotal = 0;
     try {
-      const page = await session.newPage();
-      if (!(await isLoggedIn(page))) {
-        logEvent(db, null, 'web:loggedin_needs_login');
-        await deps.notify(
-          '🔑 Lancersのログインが切れているため、ログイン巡回をスキップしました。<code>npm run lancers:login</code> で再ログインしてください(匿名巡回は継続中)。',
-        );
-        return [];
-      }
-
-      for (const [index, target] of plan.targets.entries()) {
-        if (index > 0) await sleep(randomDelayMs(LOGGED_IN_DELAY_MIN_MS, LOGGED_IN_DELAY_MAX_MS));
-
-        const url = buildSearchUrl(target, config.WEB_SEARCH_BUDGET_FROM);
-        try {
-          const html = await fetchListingViaPage(page, url);
-          const candidates = parseSearchResults(html);
-          parsedTotal += candidates.length;
-          newJobs.push(...registerCandidates(db, candidates, target, 'web_loggedin'));
-          incrementDailyCount(db, LOGGED_IN_DAILY_PREFIX);
-        } catch (error) {
-          console.warn(`[web:loggedin] ${url} の巡回に失敗:`, error);
-          logEvent(db, null, 'web:loggedin_target_error', {
-            target: target.value,
-            message: String(error),
-          });
+      // withPage で巡回タブを開き、完了/例外いずれでも必ず閉じる
+      const skipped = await session.withPage(async (page): Promise<boolean> => {
+        if (!(await isLoggedIn(page))) {
+          logEvent(db, null, 'web:loggedin_needs_login');
+          await deps.notify(
+            '🔑 Lancersのログインが切れているため、ログイン巡回をスキップしました。<code>npm run lancers:login</code> で再ログインしてください(匿名巡回は継続中)。',
+          );
+          return true;
         }
-      }
+
+        for (const [index, target] of plan.targets.entries()) {
+          if (index > 0) await sleep(randomDelayMs(LOGGED_IN_DELAY_MIN_MS, LOGGED_IN_DELAY_MAX_MS));
+
+          const url = buildSearchUrl(target, config.WEB_SEARCH_BUDGET_FROM);
+          try {
+            const html = await fetchListingViaPage(page, url);
+            const candidates = parseSearchResults(html);
+            parsedTotal += candidates.length;
+            newJobs.push(...registerCandidates(db, candidates, target, 'web_loggedin'));
+            incrementDailyCount(db, LOGGED_IN_DAILY_PREFIX);
+          } catch (error) {
+            console.warn(`[web:loggedin] ${url} の巡回に失敗:`, error);
+            logEvent(db, null, 'web:loggedin_target_error', {
+              target: target.value,
+              message: String(error),
+            });
+          }
+        }
+        return false;
+      });
+      if (skipped) return [];
     } finally {
       await session.close();
     }
@@ -315,9 +319,10 @@ async function fetchViaBrowser(url: string, config: Config): Promise<string | nu
       ...(config.PLAYWRIGHT_CHANNEL ? { channel: config.PLAYWRIGHT_CHANNEL } : {}),
     });
     try {
-      const page = await session.newPage();
-      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: BROWSER_NAV_TIMEOUT_MS });
-      return await page.content();
+      return await session.withPage(async (page) => {
+        await page.goto(url, { waitUntil: 'domcontentloaded', timeout: BROWSER_NAV_TIMEOUT_MS });
+        return page.content();
+      });
     } finally {
       await session.close();
     }

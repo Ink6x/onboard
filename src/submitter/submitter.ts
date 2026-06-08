@@ -55,57 +55,59 @@ export class LancersSubmitter {
         ...(this.options.executablePath ? { executablePath: this.options.executablePath } : {}),
         ...(this.options.channel ? { channel: this.options.channel } : {}),
       });
-      const page = await session.newPage();
 
-      if (!(await isLoggedIn(page))) {
-        return { status: 'needs_login' };
-      }
+      // withPage で包み、処理完了/例外いずれでも該当タブを必ず閉じる
+      return await session.withPage(async (page): Promise<SubmitResult> => {
+        if (!(await isLoggedIn(page))) {
+          return { status: 'needs_login' };
+        }
 
-      await this.openProposalForm(page, job.url);
-      await this.fillForm(page, proposalText, bid);
+        await this.openProposalForm(page, job.url);
+        await this.fillForm(page, proposalText, bid);
 
-      const shotName = `job-${job.id}-${stage}.png`;
-      const screenshotPath = `${this.options.screenshotDir}/${shotName}`;
-      await page.screenshot({ path: screenshotPath, fullPage: true });
+        const shotName = `job-${job.id}-${stage}.png`;
+        const screenshotPath = `${this.options.screenshotDir}/${shotName}`;
+        await page.screenshot({ path: screenshotPath, fullPage: true });
 
-      if (stage === 'fill') {
-        return { status: 'filled', screenshotPath };
-      }
+        if (stage === 'fill') {
+          return { status: 'filled', screenshotPath };
+        }
 
-      // stage === 'submit': 提案フォームは 入力 → 確認 → 完了 の3ステップ。
-      // ① 入力ページの「同意して提案する」(#form_end)で確認ページへ進む
-      const submitButton = await findFirst(page, LANCERS_SELECTORS.submitButton);
-      if (!submitButton) {
-        return { status: 'error', message: '送信ボタン(入力→確認)が見つかりませんでした', screenshotPath };
-      }
-      await submitButton.click();
+        // stage === 'submit': 提案フォームは 入力 → 確認 → 完了 の3ステップ。
+        // ① 入力ページの「同意して提案する」(#form_end)で確認ページへ進む
+        const submitButton = await findFirst(page, LANCERS_SELECTORS.submitButton);
+        if (!submitButton) {
+          return { status: 'error', message: '送信ボタン(入力→確認)が見つかりませんでした', screenshotPath };
+        }
+        await submitButton.click();
 
-      // ② 確認ページの「利用規約に同意して提案する」で実際に送信する
-      const finalButton = await findFirst(page, LANCERS_SELECTORS.finalSubmitButton, 10000);
-      if (!finalButton) {
-        const confirmShot = `${this.options.screenshotDir}/job-${job.id}-confirm.png`;
-        await page.screenshot({ path: confirmShot, fullPage: true });
-        return {
-          status: 'error',
-          message: '確認ページの最終送信ボタンが見つかりませんでした(入力エラーの可能性)',
-          screenshotPath: confirmShot,
-        };
-      }
-      await finalButton.click();
-      await page.waitForTimeout(3500);
+        // ② 確認ページの「利用規約に同意して提案する」で実際に送信する
+        const finalButton = await findFirst(page, LANCERS_SELECTORS.finalSubmitButton, 10000);
+        if (!finalButton) {
+          const confirmShot = `${this.options.screenshotDir}/job-${job.id}-confirm.png`;
+          await page.screenshot({ path: confirmShot, fullPage: true });
+          return {
+            status: 'error',
+            message: '確認ページの最終送信ボタンが見つかりませんでした(入力エラーの可能性)',
+            screenshotPath: confirmShot,
+          };
+        }
+        await finalButton.click();
+        await page.waitForTimeout(3500);
 
-      const resultShot = `${this.options.screenshotDir}/job-${job.id}-result.png`;
-      await page.screenshot({ path: resultShot, fullPage: true });
+        const resultShot = `${this.options.screenshotDir}/job-${job.id}-result.png`;
+        await page.screenshot({ path: resultShot, fullPage: true });
 
-      const success = await this.detectSuccess(page);
-      if (!success) {
-        return {
-          status: 'error',
-          message: '送信完了を確認できませんでした(結果スクショを確認してください)',
-          screenshotPath: resultShot,
-        };
-      }
-      return { status: 'submitted', screenshotPath: resultShot };
+        const success = await this.detectSuccess(page);
+        if (!success) {
+          return {
+            status: 'error',
+            message: '送信完了を確認できませんでした(結果スクショを確認してください)',
+            screenshotPath: resultShot,
+          };
+        }
+        return { status: 'submitted', screenshotPath: resultShot };
+      });
     } catch (error) {
       return {
         status: 'error',
